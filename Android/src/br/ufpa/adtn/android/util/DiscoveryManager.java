@@ -591,7 +591,7 @@ public final class DiscoveryManager {
 			}
 			
 			//Return this Message to the global pool
-			msg.recycle();
+//			msg.recycle();
 		}
 	}
 	

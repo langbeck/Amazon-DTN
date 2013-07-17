@@ -49,7 +49,7 @@ public final class EID implements Serializable {
 		return get(String.format("%s:%s", scheme, ssp));
 	}
 	
-	public static EID get(String eid) {
+	public static EID get(String eid) throws ParsingException {
 		if (eid == null)
 			return NULL;
 		
@@ -71,8 +71,11 @@ public final class EID implements Serializable {
 		}
 	}
 	
-	private static EID parse(String eid) {
+	private static EID parse(String eid) throws ParsingException {
 		final String[] parts = eid.split(":", 2);
+		if (parts.length != 2)
+			throw new ParsingException();
+		
 		return new EID(parts[0], parts[1]);
 	}
 	
@@ -108,7 +111,7 @@ public final class EID implements Serializable {
 	private final byte[] rawData;
 	private final int dLength;
 	
-	private EID(String scheme, String ssp) {
+	private EID(String scheme, String ssp) throws IllegalArgumentException {
 		if (scheme == null || ssp == null)
 			throw new IllegalArgumentException();
 		

@@ -296,7 +296,11 @@ public class SocialInformation {
         }
         
         public float getNeighborTECD(EID eid) {
-        	return lookupByNeighbor(eid).tecd[cds % dslen];
+        	final Neighbor neighbor = gNeighbors.get(eid);
+        	if (neighbor == null)
+        		return Float.NaN;
+        	
+        	return neighbor.tecd[cds % dslen];
         }
     }
     

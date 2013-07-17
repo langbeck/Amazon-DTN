@@ -5,6 +5,8 @@ import java.nio.ByteBuffer;
 import br.ufpa.adtn.core.EID;
 
 public class BundleBuilder {
+	public static final long DEFAULT_LIFETIME = 3600;
+	
 	private EID destination;
 	private EID custodian;
 	private EID reportTo;
@@ -13,61 +15,46 @@ public class BundleBuilder {
 	private ByteBuffer payload;
 	private long lifetime;
 	
-	public BundleBuilder(EID source, EID destination, ByteBuffer payload) {
+	public BundleBuilder() {
+		this.lifetime = DEFAULT_LIFETIME;
+		this.destination = EID.NULL;
+		this.custodian = EID.NULL;
+		this.reportTo = EID.NULL;
+		this.source = EID.NULL;
+		this.payload = null;
+	}
+
+	public BundleBuilder setDestination(EID destination) {
 		this.destination = destination;
-		this.payload = payload;
-		this.source = source;
-	}
-	
-	public EID getDestination() {
-		return destination;
+		return this;
 	}
 
-	public void setDestination(EID destination) {
-		this.destination = destination;
-	}
-
-	public EID getCustodian() {
-		return custodian;
-	}
-
-	public void setCustodian(EID custodian) {
+	public BundleBuilder setCustodian(EID custodian) {
 		this.custodian = custodian;
+		return this;
 	}
 
-	public EID getReportTo() {
-		return reportTo;
-	}
-
-	public void setReportTo(EID reportTo) {
+	public BundleBuilder setReportTo(EID reportTo) {
 		this.reportTo = reportTo;
+		return this;
 	}
 
-	public EID getSource() {
-		return source;
-	}
-
-	public void setSource(EID source) {
+	public BundleBuilder setSource(EID source) {
 		this.source = source;
+		return this;
 	}
 
-	public ByteBuffer getPayload() {
-		return payload;
-	}
-
-	public void setPayload(ByteBuffer payload) {
+	public BundleBuilder setPayload(ByteBuffer payload) {
 		this.payload = payload;
+		return this;
 	}
 
-	public long getLifetime() {
-		return lifetime;
-	}
-
-	public void setLifetime(long lifetime) {
+	public BundleBuilder setLifetime(long lifetime) {
 		this.lifetime = lifetime;
+		return this;
 	}
 
 	public Bundle build() {
-		return null;
+		return new Bundle(source, destination, payload);
 	}
 }

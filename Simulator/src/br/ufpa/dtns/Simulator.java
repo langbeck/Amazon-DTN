@@ -100,7 +100,6 @@ public class Simulator {
 		final LocalDevice d2 = DeviceLoader.create("dorian.node");
 		System.err.println("--[ Devices Created ]------------------");
 		
-
 		d1.addBundle(new Bundle(d1.getEID(), d2.getEID(), payload));
 		d1.addBundle(new Bundle(d1.getEID(), d2.getEID(), payload));
 		

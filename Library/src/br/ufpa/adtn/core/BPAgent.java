@@ -82,14 +82,14 @@ public final class BPAgent {
 			throw new IllegalAccessError(eMsg);
 	}
 	
-	public static void routeUnlink(EID src, EID dst) {
-		LOGGER.v(String.format("Bundle outbox unlink: %s -> dst", src, dst));
-		bOutbox.unlink(src, dst);
+	public static void routeUnlink(EID dst, EID next) {
+		LOGGER.v(String.format("Bundle outbox unlink: %s -> dst", dst, next));
+		bOutbox.unlink(dst, next);
 	}
 	
-	public static void routeLink(EID src, EID dst) {
-		LOGGER.v(String.format("Bundle outbox link: %s -> dst", src, dst));
-		bOutbox.link(src, dst);
+	public static void routeLink(EID dst, EID next) {
+		LOGGER.v(String.format("Bundle outbox link: %s -> dst", dst, next));
+		bOutbox.link(dst, next);
 	}
 	
 	public static State getState() {
@@ -418,7 +418,7 @@ public final class BPAgent {
 		return 0;
 	}
 
-	
+
 
 	private static class RouterStub<R extends BundleRouter<R, LC>, LC extends LinkConnection<LC, R>> {
 		private final RouterConfiguration config;
@@ -460,8 +460,8 @@ public final class BPAgent {
 			connection.notifyBundleReceived(bundle);
 		}
 	}
-	
-	
+
+
 	private static class ClockHooker implements SystemClock.Hooker {
 		private boolean ready = false;
 		private long start;

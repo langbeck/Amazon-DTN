@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.HashSet;
 
 import br.ufpa.adtn.bundle.Bundle;
+import br.ufpa.adtn.core.BPAgent;
+import br.ufpa.adtn.core.EID;
 import br.ufpa.adtn.routing.MessageLinkConnection;
 import br.ufpa.adtn.routing.dlife.DLifeUtil.BundleSpec;
 import br.ufpa.adtn.routing.dlife.SocialInformation.NeighborWeight;
@@ -39,45 +41,6 @@ public class DLifeLinkConnection extends MessageLinkConnection<DLifeLinkConnecti
 		return sInfo;
 	}
 	
-//	protected boolean decisionRoutine(Bundle b) {
-//		final int b_id = DLifeUtil.getBundleID(b);
-//		// TODO Passar a usar Mapeamento do Dicionario aqui dentro!!
-//		final EID dest = b.getDestination();
-//		final Integer destStr_id = dict.stringIdOf(dest);
-//
-//		// TODO Mais tarde eh bom notificar de cada
-//		// return desse metodo, nao sendo so um True
-//		// ou False
-//		if (social.getCarrList().containsKey(b_id)) {
-//			return false;
-//		} else if (social.getAckList().containsKey(b_id)) {
-//			DLifeBundleRouter.notifyAckedBundle(b);
-//			return false;
-//		}
-//		if (b.length() > storageCapacity)
-//			return false;
-//
-//		// Se nao há mapeamento no dicionario do vizinho
-//		// para o EID destino de um Bundle meu, teoricamente
-//		// o mesmo nao conhece esse destino. Posso pular para
-//		// a segunda parte. So entra aqui se alem de conhecer,
-//		// estar na SWNIList.
-//		if (destStr_id == null && social.getSWNI().containsKey(destStr_id)) {
-//			if (sInfo.getWeight(dest) < social.getSWNI().get(
-//					destStr_id))
-//				return true;
-//			// RoutingTable.setRoute(dest, eid)
-//			else
-//				return false;
-//		} else {
-//			if (sInfo.getTECDi() < social.getImportance())
-//				return true;
-//			// RoutingTable.setRoute(dest, eid)
-//			else
-//				return false;
-//		}
-//	}
-	
 	public void update(NeighborWeight[] weights, BundleSpec[] carried, BundleSpec[] acked, int storage, float importance) {
 		for (int i = 0, len = carried.length; i < len; i++)
 			this.carried.add(carried[i]);
@@ -86,11 +49,29 @@ public class DLifeLinkConnection extends MessageLinkConnection<DLifeLinkConnecti
 		for (int i = 0, len = acked.length; i < len; i++) {
 			final BundleSpec spec = acked[i];
 			
+			// Update router references
 			router.updateAcked(spec);
+			
+			// Update neighbor references
+			this.carried.remove(spec);
 			this.acked.add(spec);
 		}
 		
-		sInfo.setNeighborTECDi(getRegistrationEndpointID(), importance);
+		final EID local_eid = getEndpointID();
+		final float tecdi = sInfo.getTECDi();
+		for (int i = 0, len = weights.length; i < len; i++) {
+			final NeighborWeight nw = weights[i];
+			final EID eid = nw.getEID();
+			final float lw = sInfo.getWeight(eid);
+			
+			if (lw != Float.NaN) {
+				if (nw.getWeight() < lw)	BPAgent.routeUnlink(eid, local_eid);
+				else						BPAgent.routeLink(eid, local_eid);
+			} else if (tecdi >= importance)	BPAgent.routeUnlink(eid, local_eid);
+			else							BPAgent.routeLink(eid, local_eid);
+		}
+		
+		sInfo.setNeighborTECDi(local_eid, importance);
 	}
 	
 	public boolean isCarrying(Bundle bundle) {

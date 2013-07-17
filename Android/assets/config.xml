@@ -1,0 +1,5 @@
+<configuration>
+    <convergence-layer class="br.ufpa.adtn.android.clayer.BtConvergenceLayer" />
+    
+    <router class="br.ufpa.adtn.routing.dlife.DLifeBundleRouter" registration="dlife" />
+</configuration>

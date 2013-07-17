@@ -3,6 +3,7 @@ package br.ufpa.adtn.routing;
 import java.nio.ByteBuffer;
 
 import br.ufpa.adtn.bundle.Bundle;
+import br.ufpa.adtn.bundle.BundleBuilder;
 import br.ufpa.adtn.core.BundleRouter;
 import br.ufpa.adtn.core.LinkConnection;
 import br.ufpa.adtn.core.ParsingException;
@@ -40,10 +41,11 @@ public abstract class MessageLinkConnection<MLC extends MessageLinkConnection<ML
 		
 		final ByteBuffer buffer = ByteBuffer.allocate(0x10000);
 		message.serialize(buffer);
-		send(new Bundle(
-				getLocalEndpointID(),
-				getRegistrationEndpointID(),
-				buffer
-		));
+		send(new BundleBuilder()
+			.setDestination(getRegistrationEndpointID())
+			.setSource(getLocalEndpointID())
+			.setPayload(buffer)
+			.build()
+		);
 	}
 }
