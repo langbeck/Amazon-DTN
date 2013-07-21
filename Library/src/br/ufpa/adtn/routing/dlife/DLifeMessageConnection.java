@@ -131,7 +131,7 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 	private void sendHelloACK(int id) {
 		sendResponse(id, null, new DLifeTLV.Hello(
 				HelloType.ACK,
-				getRegistrationEndpointID(),
+				getLocalEndpointID(),
 				0,
 				0
 		));

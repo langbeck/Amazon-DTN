@@ -391,12 +391,8 @@ public final class BPAgent {
 		}
 	}
 	
-	public static Collection<Bundle> getBundlesFrom(EID src) {
-		return bStorage.getBundlesFrom(src);
-	}
-	
 	public static Collection<Bundle> getBundlesFor(EID dst) {
-		return bStorage.getBundlesFor(dst);
+		return bOutbox.searchBundles(dst);
 	}
 	
 	public static Collection<Bundle> getBundles() {

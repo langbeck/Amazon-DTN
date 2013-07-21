@@ -57,7 +57,7 @@ public class DLifeLinkConnection extends MessageLinkConnection<DLifeLinkConnecti
 			this.acked.add(spec);
 		}
 		
-		final EID local_eid = getEndpointID();
+		final EID local_eid = getEndpointID(); // FIXME Is variable name remote_eid?
 		final float tecdi = sInfo.getTECDi();
 		for (int i = 0, len = weights.length; i < len; i++) {
 			final NeighborWeight nw = weights[i];
