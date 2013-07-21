@@ -4,6 +4,7 @@ import java.nio.ByteBuffer;
 
 import br.ufpa.adtn.core.EID;
 
+@SuppressWarnings("unused")
 public class BundleBuilder {
 	public static final long DEFAULT_LIFETIME = 3600;
 	

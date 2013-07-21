@@ -1,6 +1,7 @@
 package br.ufpa.adtn.routing.dlife;
 
 import br.ufpa.adtn.core.BPAgent;
+import br.ufpa.adtn.core.EID;
 import br.ufpa.adtn.routing.MessageConnection;
 import br.ufpa.adtn.routing.ResponseListener;
 import br.ufpa.adtn.routing.dlife.DLifeTLV.Ack;
@@ -12,7 +13,7 @@ import br.ufpa.adtn.util.Logger;
 
 public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnection, DLifeTLV, DLifeMessageConnection> {
 	private static final Logger LOGGER = new Logger("DLifeMessageConnection");
-	private enum State { UNDEFINED, WAITING_HELLO_HEL, SOCIAL_EXCHANGE, FINISHED }
+	private enum State { UNDEFINED, HELLO_EXCHANGE, SOCIAL_EXCHANGE, FINISHED }
 	
 	private DLifeLinkConnection conn;
 	private SocialInformation sInfo;
@@ -28,7 +29,7 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 		
 		state = to;
 	}
-	
+
 	@Override
 	protected void init(boolean isInitiator) {
 		LOGGER.v(String.format("init(%s)", isInitiator));
@@ -38,12 +39,11 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 		storage = 0;
 		sendHello();
 	}
-	
+
 	@Override
 	public void onReceived(int id, DLifeTLV tlv) {
-
 		switch (state) {
-		case WAITING_HELLO_HEL:
+		case HELLO_EXCHANGE:
 			processHello(tlv, id);
 			break;
 
@@ -58,7 +58,7 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 			));
 		}
 	}
-	
+
 	private void processSocial(DLifeTLV tlv, int id) {
 		if (!(tlv instanceof Social)) {
 			LOGGER.e(String.format(
@@ -97,37 +97,46 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 		if (hType != HelloType.HEL) {
 			LOGGER.e(String.format(
 					"Unexpected Hello.%s received from %s",
-					hType, getEndpointID()
+					hType, getRegistrationEndpointID()
 			));
 			return;
 		}
-			
+
+		final EID registration_eid = getRegistrationEndpointID();
+		final EID hello_eid = hello.getEID();
+		if (!registration_eid.equals(hello_eid)) {
+			LOGGER.w(String.format(
+					"Received \"%s\" in Hello TLV but we are in \"%s\". [IGNORING]",
+					hello_eid, registration_eid
+			));
+		}
+		
 		storage = hello.getStorage();
 		sendHelloACK(id);
 		
-		LOGGER.v("Hello.HEL received from " + getEndpointID());
+		LOGGER.v("Hello.HEL received from " + getRegistrationEndpointID());
 	}
 
 	private void sendHello() {
 		sendMessage(new HelloResponseListener(), new DLifeTLV.Hello(
 				HelloType.HEL,
-				getEndpointID(),
+				getLocalEndpointID(),
 				0,
 				BPAgent.getStorageCapacity()
 		));
 		
-		changeState(State.WAITING_HELLO_HEL);
+		changeState(State.HELLO_EXCHANGE);
 	}
 	
 	private void sendHelloACK(int id) {
 		sendResponse(id, null, new DLifeTLV.Hello(
 				HelloType.ACK,
-				getEndpointID(),
+				getRegistrationEndpointID(),
 				0,
 				0
 		));
 		
-		LOGGER.i("Hello.ACK sent to " + getEndpointID());
+		LOGGER.i("Hello.ACK sent to " + getRegistrationEndpointID());
 	}
 	
 	private void sendSocial() {

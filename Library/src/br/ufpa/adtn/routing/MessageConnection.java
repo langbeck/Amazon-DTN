@@ -130,8 +130,12 @@ public abstract class MessageConnection<LConn extends LinkConnection<?, ?>, T ex
 		return connection;
 	}
 	
-	public final EID getEndpointID() {
+	public final EID getRegistrationEndpointID() {
 		return connection.getRegistrationEndpointID();
+	}
+	
+	public final EID getLocalEndpointID() {
+		return connection.getLocalEndpointID();
 	}
 	
 	protected final void sendResponse(int id, ResponseListener<T> listener, T ... tlvs) {
