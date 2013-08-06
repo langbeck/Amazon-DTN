@@ -41,6 +41,7 @@ import br.ufpa.adtn.bundle.Bundle;
 import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.ConvergenceLayer;
 import br.ufpa.adtn.core.EID;
+import br.ufpa.adtn.core.InformationHub;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.Properties;
 
@@ -79,12 +80,15 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 	
 	public class BtAdapter extends ConvergenceLayer<BtAdapter, BtConnection>.AbstractAdapter {
 		private BluetoothServerSocket sSocket;
+		private final BtDiscovery discovery;
 		private final UUID uuid;
 		
 		private BtAdapter(Context context, String local_eid, UUID discovery, UUID uuid) throws IOException {
+			this.discovery = new BtDiscovery(this, context, local_eid, discovery, uuid);
 			this.sSocket = null;
 			this.uuid = uuid;
-			setupDiscovery(new BtDiscovery(this, context, local_eid, discovery, uuid));
+			
+			setupDiscovery(this.discovery);
 		}
 		
 		@Override
@@ -147,10 +151,10 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 			);
 		}
 		
-		
 		@Override
 		public void send(Bundle bundle) {
 			outputBundles.offer(bundle);
+			super.send(bundle);
 		}
 
 		@Override
@@ -167,6 +171,8 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 					final Bundle b = outputBundles.take();
 					oos.writeUnshared(b);
 					oos.flush();
+					
+					InformationHub.BUNDLE.onSent();
 				}
 			} catch (InterruptedException e) {
 				LOGGER.w("Output Interrupted");
@@ -192,6 +198,8 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 					final Object bundle;
 					try {
 						bundle = ois.readUnshared();
+						
+						InformationHub.BUNDLE.onReceived();
 					} catch (IOException e) {
 						LOGGER.w("Connection failure");
 						break;
@@ -214,6 +222,7 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 		@Override
 		protected void openConnection() throws IOException {
 			socket = device.createInsecureRfcommSocketToServiceRecord(uuid);
+			socket.connect();
 			setupStream(
 					new BufferedOutputStream(socket.getOutputStream()),
 					new BufferedInputStream(socket.getInputStream())

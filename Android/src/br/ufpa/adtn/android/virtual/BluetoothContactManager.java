@@ -54,7 +54,7 @@ public final class BluetoothContactManager {
     private final Timer timer;
 
     private BluetoothContactManager(String selfAddress) {
-        this.config = SimulationConfiguration.getInstance();
+        this.config = BPAgent.getSimulationConfig();
         this.timer = new Timer("ContactManager");
         this.inContact = new HashSet<String>();
         

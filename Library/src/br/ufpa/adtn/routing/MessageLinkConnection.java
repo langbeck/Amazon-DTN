@@ -39,7 +39,7 @@ public abstract class MessageLinkConnection<MLC extends MessageLinkConnection<ML
 		this.parser = parser;
 	}
 	
-	public Provider<MLC, T, C> getProvider() {
+	public Provider<MLC, T, C> getMessageProvider() {
 		return provider;
 	}
 	

@@ -20,22 +20,58 @@ package br.ufpa.adtn.util;
 import java.util.concurrent.ThreadFactory;
 
 public class SingleThreadFactory implements ThreadFactory {
+	private final Object locker;
+	private boolean locked;
 	private Thread thread;
 	
-	public SingleThreadFactory() {
+	public SingleThreadFactory(boolean locked) {
+		this.locker = new Object();
+		this.locked = locked;
 		this.thread = null;
+	}
+	
+	public SingleThreadFactory() {
+		this(false);
 	}
 
 	@Override
-	public synchronized Thread newThread(Runnable r) {
-		if (thread != null)
-			throw new IllegalStateException("One thread has already been created");
-		
-		thread = new Thread(r);
-		return thread;
+	public Thread newThread(Runnable r) {
+		synchronized (locker) {
+			if (thread != null)
+				throw new IllegalStateException("One thread has already been created");
+			
+			thread = new Thread(r) {
+				
+				@Override
+				public void start() {
+					synchronized (locker) {
+						if (locked)
+							return;
+						
+						super.start();
+					}
+				}
+			};
+			return thread;
+		}
 	}
 	
-	public synchronized Thread getThread() {
-		return thread;
+	public void startThread() {
+		synchronized (locker) {
+			if (thread == null)
+				throw new RuntimeException("Inner thread not created yet");
+			
+			if (!locked)
+				throw new RuntimeException("Not locked");
+			
+			locked = false;
+			thread.start();
+		}
+	}
+	
+	public Thread getThread() {
+		synchronized (locker) {
+			return thread;
+		}
 	}
 }

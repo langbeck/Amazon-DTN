@@ -45,8 +45,8 @@ public class DLifeLinkConnection extends MessageLinkConnection<DLifeLinkConnecti
 	protected void onParked() {
 		LOGGER.v("onParked event");
 		
-		if (getRouter().updatePresence(this))
-			getProvider().create();
+//		if (getRouter().updatePresence(this))
+			getMessageProvider().create();
 	}
 
 	@Override

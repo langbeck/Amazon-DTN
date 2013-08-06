@@ -1,0 +1,5 @@
+<configuration>
+    <convergence-layer class="br.ufpa.dtns.cl.VirtualConvergenceLayer" />
+    
+    <router class="br.ufpa.adtn.routing.prophet.ProphetBundleRouter" registration="prophet" />
+</configuration>

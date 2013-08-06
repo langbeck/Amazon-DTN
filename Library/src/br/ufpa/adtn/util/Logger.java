@@ -164,8 +164,12 @@ public final class Logger {
 			println(priority, tag, message + ": " + t);
 			for (StackTraceElement trace : t.getStackTrace())
 				println(priority, tag, " at " + trace.toString());
+			
+			flush();
 		}
 		
 		public abstract void println(Priority priority, String tag, String message);
+		
+		public void flush() { }
 	}
 }

@@ -18,6 +18,9 @@
 package br.ufpa.dtns;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.PrintStream;
 import java.io.Serializable;
 import java.net.SocketAddress;
 import java.rmi.RemoteException;
@@ -34,6 +37,7 @@ import br.ufpa.adtn.util.Logger.LogHandler;
 import br.ufpa.adtn.util.Logger.Priority;
 import br.ufpa.dtns.cl.VirtualConvergenceLayer;
 import br.ufpa.dtns.cl.VirtualConvergenceLayer.VirtualAdapter;
+import br.ufpa.dtns.util.PrintStreamHooker;
 
 
 public class RemoteDevice implements DeviceConnector, Serializable {
@@ -53,9 +57,21 @@ public class RemoteDevice implements DeviceConnector, Serializable {
 		configured = false;
 	}
 	
-	public synchronized void init(final Priority gPriority) throws RemoteException {
+	@SuppressWarnings({ "resource", "unused" })
+	public void init(final Priority gPriority, String config, String simulation) throws RemoteException {
 		if (configured)
 			throw new IllegalStateException("Device already configured");
+		
+		
+		final PrintStream out;
+		try {
+			out = true ? System.err : new PrintStreamHooker(
+					System.err,
+					new FileOutputStream("logs/" + eid + ".log")
+			);
+		} catch (Exception e) {
+			throw new RemoteException(e.getMessage());
+		}
 		
 		Logger.setLogHandler(new LogHandler() {
 			@Override
@@ -63,22 +79,21 @@ public class RemoteDevice implements DeviceConnector, Serializable {
 				if (priority.ordinal() < gPriority.ordinal())
 					return;
 				
-				System.err.printf("%7s %-15s %30s: %s\n", priority, eid, tag, message);
+				out.printf("%7s %-27s %30s: %s\n", priority, eid, tag, message);
 			}
 		});
 		
 		BPAgent.setClassLoader(getClass().getClassLoader());
-		BPAgent.init(true);
 
 		try {
-			SimulationConfiguration.load(new FileInputStream("contact.conf"));
-			BPAgent.load(new FileInputStream("config.xml"));
+			BPAgent.init(new SimulationConfiguration(new FileReader(simulation)));
+			BPAgent.load(new FileInputStream(config));
 		} catch (Exception e) {
 			throw new RemoteException("Load configurations failure", e);
 		}
 
 		BPAgent.setHostname(eid);
-		BPAgent.startComponents();
+		BPAgent.start();
 		
 		final VirtualAdapter adapter = VirtualConvergenceLayer.getMainAdapter();
 		if (adapter == null)

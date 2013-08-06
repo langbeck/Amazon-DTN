@@ -91,13 +91,13 @@ public final class EID implements Serializable {
 	private static EID parse(String eid) throws ParsingException {
 		final String[] parts = eid.split(":", 2);
 		if (parts.length != 2)
-			throw new ParsingException();
+			throw new ParsingException(eid);
 		
 		return new EID(parts[0], parts[1]);
 	}
 	
 	public static EID decode(ByteBuffer buffer) {
-		/*
+		/**
 		 * This is not a bug. 16-bits are enough to hold
 		 * a EID length.
 		 */

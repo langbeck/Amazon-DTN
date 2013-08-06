@@ -22,11 +22,12 @@ import java.util.Date;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.configuration.SimulationConfiguration;
 
 
 public final class VirtualClock {
-	private static final SimulationConfiguration CONFIG = SimulationConfiguration.getInstance();
+	private static final SimulationConfiguration CONFIG = BPAgent.getSimulationConfig();
 	private static final long START = CONFIG.getStart().getTime();
 	private static final double TS = CONFIG.getTimescale();
 	

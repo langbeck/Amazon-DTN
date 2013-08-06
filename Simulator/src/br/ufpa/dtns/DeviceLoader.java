@@ -81,7 +81,7 @@ public final class DeviceLoader {
 		return CBC;
 	}
 	
-	public synchronized static LocalDevice create(String hostname) throws AccessException, SecurityException, RemoteException, NotBoundException {
+	public static LocalDevice create(String hostname) throws AccessException, SecurityException, RemoteException, NotBoundException {
 		return create(hostname, PRIORITY);
 	}
 	
@@ -92,10 +92,11 @@ public final class DeviceLoader {
 		if (MAP.containsKey(hostname))
 			throw new IllegalArgumentException("Name already registered");
 		
-		final DeviceConnector connector = createDevice(hostname);
-		connector.init(priority);
-		
-		final LocalDevice device = new LocalDevice(EID.forHost(hostname), connector);
+		final LocalDevice device = new LocalDevice(
+				EID.forHost(hostname),
+				createDevice(hostname),
+				priority
+		);
 		MAP.put(hostname, device);
 		return device;
 	}
@@ -153,29 +154,33 @@ public final class DeviceLoader {
 	
 	public static final class LocalDevice {
 		private final DeviceConnector connector;
-		private final SocketAddress address;
+		private final Priority priority;
 		private final EID eid;
 		
-		private LocalDevice(EID eid, DeviceConnector connector) throws RemoteException {
-			this.address = connector.getAddress();
+		private LocalDevice(EID eid, DeviceConnector connector, Priority priority) throws RemoteException {
 			this.connector = connector;
+			this.priority = priority;
 			this.eid = eid;
 		}
 		
+		public void init(String config, String simulation) throws RemoteException {
+			connector.init(priority, config, simulation);
+		}
+		
 		public void discovery(LocalDevice device) throws RemoteException {
-			connector.discovery(device.eid.toString(), device.address);
+			connector.discovery(device.eid.toString(), device.getAddress());
 		}
 		
 		public void addBundle(Bundle bundle) throws RemoteException {
 			connector.addBundle(bundle);
 		}
 		
-		public DeviceConnector getConnector() {
-			return connector;
+		public SocketAddress getAddress() throws RemoteException {
+			return connector.getAddress();
 		}
 
-		public SocketAddress getAddress() {
-			return address;
+		public DeviceConnector getConnector() {
+			return connector;
 		}
 		
 		public EID getEID() {

@@ -1,0 +1,53 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:drawable/title_bar_tall" >
+
+        <TextView
+            android:id="@+id/neighbor_eid"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_vertical"
+            android:layout_margin="7dp"
+            android:text="@string/app_name"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:textColor="@android:color/white" />
+
+        <ImageButton
+            android:id="@+id/start_stop_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@android:drawable/title_bar_tall"
+            android:src="@drawable/ic_action_run" />
+
+    </LinearLayout>
+    
+	<android.support.v4.view.ViewPager xmlns:android="http://schemas.android.com/apk/res/android"
+	    xmlns:tools="http://schemas.android.com/tools"
+	    android:id="@+id/pager"
+	    android:layout_width="match_parent"
+	    android:layout_height="match_parent"
+	    tools:context=".HomeActivity" >
+	
+	    <!--
+	    This title strip will display the currently visible page title, as well as the page
+	    titles for adjacent pages.
+	    -->
+	
+	    <android.support.v4.view.PagerTitleStrip
+	        android:id="@+id/pager_title_strip"
+	        android:layout_width="match_parent"
+	        android:layout_height="wrap_content"
+	        android:layout_gravity="top"
+	        android:background="@android:drawable/title_bar"
+	        android:paddingBottom="6dp"
+	        android:paddingTop="6dp"
+	        android:textColor="#fff" />
+	
+	</android.support.v4.view.ViewPager>
+</LinearLayout>

@@ -40,7 +40,7 @@ public class ProphetLinkConnection extends MessageLinkConnection<ProphetLinkConn
 		LOGGER.v("onParked event");	
 		
 		if (getRouter().updatePresence(this))
-			getProvider().create();
+			getMessageProvider().create();
 	}
 
 	@Override

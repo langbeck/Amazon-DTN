@@ -19,23 +19,24 @@ package br.ufpa.adtn.core.configuration;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.Reader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.ParsingException;
+import br.ufpa.adtn.util.Logger;
 
 /**
  * Base class to define configuration parameters of Simulation
@@ -44,23 +45,10 @@ import br.ufpa.adtn.core.ParsingException;
  * @author Dórian Langbeck
  */
 public class SimulationConfiguration {
-    private static SimulationConfiguration INSTANCE;
-    
-    public static synchronized void load(InputStream in) throws IOException, ParsingException {
-    	if (INSTANCE != null)
-    		throw new IllegalStateException("Already loaded");
-    	
-        INSTANCE = new SimulationConfiguration(new InputStreamReader(in));
-    }
-    
-    public static synchronized SimulationConfiguration getInstance() {
-        if (INSTANCE == null)
-            throw new IllegalStateException("Configuration was not loaded yet");
-        
-        return INSTANCE;
-    }
-    
+	private static final Logger LOGGER = new Logger("SimulationConfiguration");
+
     private static final SimpleDateFormat DATE_PARSER;
+    private static final SimpleDateFormat TIME_PARSER;
     private static final Pattern PATTERN_REGISTER;
     private static final Pattern PATTERN_CONTACT;
     private static final Pattern PATTERN_DEFINE;
@@ -73,8 +61,10 @@ public class SimulationConfiguration {
         PATTERN_DEFINE = Pattern.compile("^(\\w+)\\s+([\\w\\s\\-:.]+)$");
         PATTERN_LINE = Pattern.compile("^\\s*(\\w+)(\\s+(.*))?$");
         PATTERN_BEGIN = Pattern.compile("^(\\w+)$");
-                
+
         DATE_PARSER = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.US);
+        TIME_PARSER = new SimpleDateFormat("HH:mm:ss", Locale.US);
+        TIME_PARSER.setTimeZone(TimeZone.getTimeZone("GMT"));
     }
     
 
@@ -84,18 +74,19 @@ public class SimulationConfiguration {
     private double timescale;
     private boolean inBlock;
     private boolean isStart;
+    private boolean ignore;
+    private Date offset;
     private Date start;
 
-    private SimulationConfiguration(Reader source) throws ParsingException, IOException {
-    	if (!BPAgent.isSimulated())
-    		throw new IllegalStateException("BPAgent is not in SIMULATED mode");
-    	
-        this.addressRef = new HashMap<String, DeviceInfo>();
+    public SimulationConfiguration(Reader source) throws ParsingException, IOException {
+    	this.addressRef = new HashMap<String, DeviceInfo>();
         this.aliasesRef = new HashMap<String, DeviceInfo>();
         this.currentDevice = null;
         this.inBlock = false;
         this.isStart = true;
+        this.ignore = false;
         this.timescale = 1;
+        this.offset = null;
         this.start = null;
 
         final BufferedReader reader = new BufferedReader(source);
@@ -166,6 +157,14 @@ public class SimulationConfiguration {
         if (start == null)
             throw new ParsingException("Start time not defined");
     }
+
+    public Collection<String> getAddresses() {
+    	return Collections.unmodifiableCollection(addressRef.keySet());
+    }
+
+    public Collection<String> getAliases() {
+    	return Collections.unmodifiableCollection(aliasesRef.keySet());
+    }
     
     public DeviceInfo getInfoByAddress(String address) {
         return addressRef.get(address);
@@ -202,11 +201,17 @@ public class SimulationConfiguration {
         if (!isStart)
             throw new ParsingException("Define command after start of begin-end blocks declaration");
         
-        if (key.equals("timescale")) {
+        if (key.equals("scale")) {
             timescale = Float.parseFloat(value);
         } else if (key.equals("start")) {
             try {
 				start = DATE_PARSER.parse(value);
+			} catch (ParseException e) {
+				throw new ParsingException(e.getMessage());
+			}
+        } else if (key.equals("offset")) {
+        	try {
+				offset = TIME_PARSER.parse(value);
 			} catch (ParseException e) {
 				throw new ParsingException(e.getMessage());
 			}
@@ -219,6 +224,9 @@ public class SimulationConfiguration {
         if (!inBlock)
             throw new ParsingException("Contact command used out of a begin-end block");
         
+        if (ignore)
+        	return;
+        
         currentDevice.addContact(alias, start, end);
     }
     
@@ -227,17 +235,34 @@ public class SimulationConfiguration {
             throw new ParsingException("Start of a new block while another block is open");
         
         final DeviceInfo info = aliasesRef.get(device);
-        if (info == null)
-            throw new ParsingException("Alias not declared: " + device);
+        if (info == null) {
+        	LOGGER.w(String.format("Alias \"%s\" not declared [IGNORING]", device));
+        	ignore = true;
+        }
+        
+        if (isStart) {
+        	if (start == null) {
+        		final Date now = new Date(System.currentTimeMillis() + 10000);
+        		LOGGER.w("No start time defined. Using 10 seconds ahead: " + now);
+        		start = now;
+        	}
+        	
+        	if (offset == null)
+        		offset = new Date(0);
+        	
+            isStart = false;
+        }
         
         currentDevice = info;
-        isStart = false;
         inBlock = true;
     }
     
     private void processEnd() throws ParsingException {
         if (!inBlock)
             throw new ParsingException("End of block without have been started");
+        
+        if (ignore)
+        	ignore = false;
         
         currentDevice = null;
         inBlock = false;
@@ -253,10 +278,12 @@ public class SimulationConfiguration {
         private ContactInfo(String address, String alias, long ts, long te) {
             if (ts >= te)
                 throw new IllegalArgumentException("End time must be greater than start time");
-            
+
+            final long _offset = offset.getTime();
             final long _start = start.getTime();
-            this.dateStart = new Date((long) ((ts * 1000) * timescale) + _start);
-            this.dateEnd = new Date((long) ((te * 1000) * timescale) + _start);
+            
+            this.dateStart = new Date((long) ((ts * 1000 - _offset) * timescale) + _start);
+            this.dateEnd = new Date((long) ((te * 1000 - _offset) * timescale) + _start);
             this.withAddress = address;
             this.withAlias = alias;
         }

@@ -39,6 +39,7 @@ import br.ufpa.adtn.core.configuration.RouterConfiguration;
 import br.ufpa.adtn.core.configuration.SimulationConfiguration;
 import br.ufpa.adtn.core.registration.BundleRegistry;
 import br.ufpa.adtn.core.registration.Registration;
+import br.ufpa.adtn.core.registration.Registry;
 import br.ufpa.adtn.util.BundleOutbox;
 import br.ufpa.adtn.util.EventQueue;
 import br.ufpa.adtn.util.Logger;
@@ -62,6 +63,7 @@ public final class BPAgent {
 	private static final BundleOutbox bOutbox;
 	private static final Logger LOGGER;
 
+	private static SimulationConfiguration sConfig;
 	private static BundleStorage bStorage;
 	private static boolean simulationMode;
 	private static ClassLoader cLoader;
@@ -81,8 +83,14 @@ public final class BPAgent {
 		cLoader = null;
 	}
 	
+	public static SimulationConfiguration getSimulationConfig() {
+		return sConfig;
+	}
+	
 	private synchronized static void checkStateAndChange(State expected, State newState) {
 		checkState(expected);
+		
+		LOGGER.v(String.format("Changing state from %s to %s", state, newState));
 		state = newState;
 	}
 	
@@ -113,8 +121,10 @@ public final class BPAgent {
 		return state;
 	}
 	
-	public synchronized static void init(boolean simulation) {
+	public synchronized static void init(SimulationConfiguration sConfig) {
 		checkStateAndChange(State.CLEAR, State.INITIALIZING);
+		final boolean simulation = (sConfig != null);
+		BPAgent.sConfig = sConfig;
 		
 		if (simulation) {
 			LOGGER.i("Starting in SIMULATED mode.");
@@ -128,6 +138,16 @@ public final class BPAgent {
 
 		if (simulation)
 			SystemClock.setHooker(new ClockHooker());
+		
+		registration.put("dtn", new Registry<Bundle>() {
+			
+			@Override
+			public void delivery(Bundle data) {
+				// TODO Check this
+				LOGGER.d("Bundle received in DTN scheme.");
+				addBundle(data);
+			}
+		});
 	}
 	
 	public static boolean isSimulated() {
@@ -305,13 +325,13 @@ public final class BPAgent {
 		cLoader = loader;
 	}
 	
-	public synchronized static void startComponents() {
+	public synchronized static void start() {
 		checkStateAndChange(State.LOADED, State.STARTING);
 		
 		if (simulationMode) {
 			LOGGER.i(String.format(
 					"Starting at %s in SIMULATED time",
-					SimulationConfiguration.getInstance().getStart()
+					sConfig.getStart()
 			));
 		}
 		
@@ -385,16 +405,16 @@ public final class BPAgent {
 			return;
 		}
 		
-		final Collection<Bundle> bundles = bOutbox.searchBundles(eid);
 		synchronized (routers) {
 			for (final RouterStub<?, ?> stub : routers)
 				stub.router.notifyLinkNear(link);
 		}
 
-		if (!bundles.isEmpty()) {
-			LOGGER.i("Sending bundles directly");
-			link.sendAll(bundles);
-		}
+//		final Collection<Bundle> bundles = bOutbox.searchBundles(eid);
+//		if (!bundles.isEmpty()) {
+//			LOGGER.i("Sending bundles directly");
+//			link.sendAll(bundles);
+//		}
 	}
 	
 	
@@ -482,9 +502,8 @@ public final class BPAgent {
 		
 		private void check() {
 			if (!ready) {
-				final SimulationConfiguration config = SimulationConfiguration.getInstance();
-				start = config.getStart().getTime();
-				ts = config.getTimescale();
+				start = sConfig.getStart().getTime();
+				ts = sConfig.getTimescale();
 				ready = true;
 			}
 		}

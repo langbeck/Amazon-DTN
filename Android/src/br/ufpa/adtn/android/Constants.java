@@ -22,6 +22,21 @@ public interface Constants {
 	 * Constant value: "br.ufpa.adtn.permission.SEND_BUNDLE"
 	 */
 	public String PERMISSION_SEND_BUNDLE = "br.ufpa.adtn.permission.SEND_BUNDLE";
+
+	/**
+	 * Constant value: "br.ufpa.adtn.permission.CONTROL"
+	 */
+	public String PERMISSION_CONTROL_BPA = "br.ufpa.adtn.permission.CONTROL";
+
+	/**
+	 * Constant value: "br.ufpa.adtn.action.START_BPA"
+	 */
+	public String ACTION_START_BPA = "br.ufpa.adtn.action.START_BPA";
+
+	/**
+	 * Constant value: "br.ufpa.adtn.action.STOP_BPA"
+	 */
+	public String ACTION_STOP_BPA = "br.ufpa.adtn.action.STOP_BPA";
 	
 	/**
 	 * Constant value: "br.ufpa.adtn.action.SEND_BUNDLE"

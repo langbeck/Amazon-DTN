@@ -22,7 +22,10 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 import br.ufpa.adtn.bundle.Bundle;
+import br.ufpa.adtn.util.CompressedInputStream;
+import br.ufpa.adtn.util.CompressedOutputStream;
 import br.ufpa.adtn.util.Logger;
+import br.ufpa.adtn.util.TrafficMeter;
 
 /**
  * A simple implementation of ConvergenceLayer to provide the most basics resources
@@ -45,10 +48,13 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 	public abstract class AbstractAdapter implements BaseCL.IAdapter {
 		private final Logger LOGGER = new Logger(ConvergenceLayer.LOGGER, "Adapter");
 		protected final ConvergenceLayerConnector connector;
+		private final boolean useCompression;
 		private final ThreadGroup tGroup;
 		private final String name;
 		
 		private Throwable execException;
+		private TrafficMeter cioMeter;
+		private TrafficMeter ioMeter;
 		private IDiscovery discovery;
 		private boolean execFailed;
 		private boolean running;
@@ -61,7 +67,10 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		}
 		
 		protected AbstractAdapter(String name) {
+			this.cioMeter = InformationHub.COMPRESSED_CONVERGENCE_LAYER_METER;
+			this.ioMeter = InformationHub.CONVERGENCE_LAYER_METER;
 			this.connector = new ConvergenceLayerConnector(this);
+			this.useCompression = true;
 			this.execException = null;
 			this.execFailed = false;
 			this.discovery = null;
@@ -90,7 +99,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 				running = true;
 				notifyAll();
 			}
-			
+
 			connector.notifyAdapterStarted();
 			try {
 				/*
@@ -120,7 +129,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 					
 					connection.initResources();
 				}
-				
+
 				connector.notifyAdapterStoped(null);
 			} catch (Throwable t) {
 				connector.notifyAdapterStoped(t);
@@ -132,7 +141,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 				}
 			} finally {
 				LOGGER.i(name + " stoped");
-				
+
 				/*
 				 * Clear running flag and call doFinalizations() to let this
 				 * adapter implementation release any resource requested so far.
@@ -157,7 +166,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 					AbstractAdapter.this.run();
 				}
 			};
-
+			
 			thread.start();
 			started = true;
 			
@@ -205,7 +214,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		public final boolean isRunning() {
 			return started;
 		}
-		
+
 		@Override
 		public String getName() {
 			return name;
@@ -225,7 +234,14 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 				thread = null;
 			}
 		}
-		
+
+		public TrafficMeter getCompressedTrafficMeter() {
+			return cioMeter;
+		}
+
+		public TrafficMeter getTrafficMeter() {
+			return ioMeter;
+		}
 		
 		protected abstract TConnection accept();
 		
@@ -242,8 +258,8 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 	 */
 	public abstract class AbstractConnection implements BaseCL.IConnection {
 		private boolean streamConfigured;
-		private AbstractAdapter adapter;
 		private ThreadGroup ctGroup;
+		private TAdapter adapter;
 		
 		private OutputStream output;
 		private boolean outputDone;
@@ -313,6 +329,12 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		
 		public synchronized final boolean isRegistered() {
 			return registered;
+		}
+		
+		@Override
+		public void send(Bundle bundle) {
+			// TODO Remove it
+			InformationHub.BUNDLE.onSent();
 		}
 		
 		@Override
@@ -444,6 +466,10 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		public final boolean isClosed() {
 			return closed;
 		}
+		
+		public TAdapter getAdapter() {
+			return adapter;
+		}
 
 		/**
 		 * This method MUST be called at {@code openConnection()}.
@@ -463,6 +489,60 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 			this.streamConfigured = true;
 			this.outputDone = false;
 			this.inputDone = false;
+			
+			
+			{	/* Check and apply TrafficMetter to streams */
+				final TrafficMeter ioMeter = adapter.ioMeter;
+				if (ioMeter != null) {
+					output = ioMeter.wrap(output);
+					input = ioMeter.wrap(input);
+				}
+			}
+			
+			if (adapter.useCompression) {
+				final TrafficMeter cioMeter = adapter.cioMeter;
+				if (cioMeter != null) {
+					output = cioMeter.wrap(output);
+					input = cioMeter.wrap(input);
+				}
+				
+				try {
+					final OutputStream out;
+					final InputStream in;
+					
+					if (connected) {
+						out = new CompressedOutputStream(output);
+						out.flush();
+						
+						in = new CompressedInputStream(input);
+					} else {
+						in = new CompressedInputStream(input);
+						
+						out = new CompressedOutputStream(output);
+						out.flush();
+					}
+					
+					/* Check and apply TrafficMetter to streams */
+					final TrafficMeter ioMeter = adapter.ioMeter;
+					if (ioMeter != null) {
+						output = ioMeter.wrap(out);
+						input = ioMeter.wrap(in);
+					} else {
+						output = out;
+						input = in;
+					}
+				} catch (Exception e) {
+					LOGGER.e("Setup compressed stream failure. Proceeding without compression.");
+				}
+			} else {
+				/* Check and apply TrafficMetter to streams */
+				final TrafficMeter ioMeter = adapter.ioMeter;
+				if (ioMeter != null) {
+					output = ioMeter.wrap(output);
+					input = ioMeter.wrap(input);
+				}
+			}
+
 			this.output = output;
 			this.input = input;
 		}
@@ -472,6 +552,9 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 				LOGGER.d("Bundle received, but this ConvergenceLayer is not registered. [Ignoring]");
 				return;
 			}
+			
+			// TODO Remove it
+			InformationHub.BUNDLE.onReceived();
 			
 			adapter.connector.notifyBundleReceived(this, bundle);
 		}

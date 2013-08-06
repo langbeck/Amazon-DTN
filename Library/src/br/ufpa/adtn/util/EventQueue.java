@@ -26,7 +26,6 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import br.ufpa.adtn.core.BPAgent;
-import br.ufpa.adtn.core.configuration.SimulationConfiguration;
 
 /**
  *
@@ -57,12 +56,24 @@ public class EventQueue {
         this(null, null, priority);
     }
     
+    public EventQueue(boolean autostart) {
+        this(null, null, Thread.MIN_PRIORITY, autostart);
+    }
+    
     public EventQueue(String name, Logger parent, final int prioriry) {
+    	this(name, parent, prioriry, true);
+    }
+    
+    public EventQueue(String name, Logger parent, final int prioriry, boolean autostart) {
 		this.name = (name == null) ? "EventQueue#" + COUNT.getAndIncrement() : name;
-		this.singleFactory = new SingleThreadFactory();
+		this.singleFactory = new SingleThreadFactory(!autostart);
 		this.LOGGER = new Logger(parent, this.name);
 		
         this.executor = new ScheduledThreadPoolExecutor(1, singleFactory);
+    }
+    
+    public void start() {
+    	singleFactory.startThread();
     }
 
     public boolean isOnInternalThread() {
@@ -79,7 +90,7 @@ public class EventQueue {
     
     public Future<?> schedule(Runnable r, long delay, TimeUnit unit) {
     	if (BPAgent.isSimulated()) {
-    		final double scale = SimulationConfiguration.getInstance().getTimescale();
+    		final double scale = BPAgent.getSimulationConfig().getTimescale();
     		final long millis = unit.toMillis(delay);
     		delay = (long) (millis * scale);
     		unit = TimeUnit.MILLISECONDS;
