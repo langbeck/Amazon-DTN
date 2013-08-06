@@ -18,8 +18,8 @@
 package br.ufpa.adtn.routing.prophet;
 
 import br.ufpa.adtn.core.BPAgent;
+
 import br.ufpa.adtn.core.EID;
-import br.ufpa.adtn.routing.Message.TLVParser;
 import br.ufpa.adtn.routing.MessageLinkConnection;
 import br.ufpa.adtn.routing.prophet.ProphetDataRouting.NeighborPredict;
 import br.ufpa.adtn.routing.prophet.ProphetUtil.BundleSpec;
@@ -61,6 +61,10 @@ public class ProphetLinkConnection extends MessageLinkConnection<ProphetLinkConn
 		for (int i = 0, len = preds.length; i < len; i++) {
 			final NeighborPredict np = preds[i];
 			final EID c_eid = np.getEID();
+			
+			if (c_eid == getLocalEndpointID())
+				continue;
+			
 			final float p_ac = dataRout.getPredict(c_eid);
 			final float p_bc = np.getPredict();
 			final float p_ab = dataRout.getPredict(remote_eid);

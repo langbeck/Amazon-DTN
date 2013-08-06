@@ -64,6 +64,9 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 			break;
 			
 		case ESTAB:
+			processHello(tlv, id);
+			break;
+			
 		case INFO_EXCH:
 			processRoutingInfo(tlv, id);
 			break;
@@ -90,8 +93,9 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 			sendHelloSYNACK(id);
 			LOGGER.v("Hello.SYN received from " + getRegistrationEndpointID());
 			
-		} else if (hType == HelloType.ACK) {
+		} else if (hType == HelloType.ACK) {			
 			LOGGER.v("Hello.ACK received from " + getRegistrationEndpointID());
+			sendRoutingInfo();
 			
 		} else {
 			LOGGER.e(String.format(
@@ -111,16 +115,20 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 			return;
 		}
 		
+		LOGGER.v("RoutingInfo received from " + getRegistrationEndpointID());
 		final RoutingInformation rinfo = (RoutingInformation) tlv;
-		final BundleSpec[] offers = conn.update(rinfo.getPredicts());
+		BundleSpec[] offers = conn.update(rinfo.getPredicts());
+		if (offers == null)
+			offers = new BundleSpec[0];
+		
 		sendBundleOffers(id, offers);
 	}
 	
 	private void sendHello() {
 		sendMessage(new HelloResponseListener(), new ProphetTLV.Hello(
 				HelloType.SYN,
-				getLocalEndpointID(),
-				0)
+				0,
+				getLocalEndpointID())
 		);
 		
 		changeState(State.SYNSENT);
@@ -130,8 +138,8 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 	private void sendHelloSYNACK(int id) {
 		sendResponse(id, null, new ProphetTLV.Hello(
 				HelloType.SYNACK,
-				getLocalEndpointID(),
-				0)
+				0,
+				getLocalEndpointID())
 		);
 		
 		LOGGER.i("Hello.SYNACK sent to " + getRegistrationEndpointID());
@@ -140,8 +148,8 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 	private void sendHelloACK(int id) {
 		sendResponse(id, null, new ProphetTLV.Hello(
 				HelloType.ACK,
-				getLocalEndpointID(),
-				0)
+				0,
+				getLocalEndpointID())
 		);
 		
 		LOGGER.i("Hello.ACK sent to " + getRegistrationEndpointID());
@@ -189,9 +197,8 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 				final Hello hello = (Hello) tlv;
 				
 				if (hello.getHelloType() == HelloType.SYNACK) {
-					sendHelloACK(id);
 					changeState(State.ESTAB);
-					sendRoutingInfo();
+					sendHelloACK(id);
 				} else {
 					LOGGER.w(String.format(
 							"HelloResponseListener received a Hello TLV with type %s, but an SYNACK was expected [IGNORING]",
@@ -247,7 +254,7 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 				// TODO Pushing Bundles in responses.
 				LOGGER.i("BundleResponse received. Pushing Bundles to " + getRegistrationEndpointID());
 			} else {
-				LOGGER.w("BundleOfferListener not received a Offer TLV [IGNORING]");
+				LOGGER.w("BundleOfferListener not received a Response TLV [IGNORING]");
 			}
 			
 		}

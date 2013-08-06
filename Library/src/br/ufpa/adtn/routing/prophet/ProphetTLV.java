@@ -47,8 +47,8 @@ public abstract class ProphetTLV extends TLV {
 			case HELLO:
 				return new Hello(
 						HelloType.getType(flags),
-						EID.decode(buffer),
-						SDNV.decodeInt(buffer)
+						SDNV.decodeInt(buffer),
+						EID.decode(buffer)
 				);
 			
 			case ERROR:
@@ -86,7 +86,7 @@ public abstract class ProphetTLV extends TLV {
 		private final EID eid;
 		private final int tlen;
 		
-		public Hello(HelloType type, EID eid, int timer) {
+		public Hello(HelloType type, int timer, EID eid) {
 			super((byte) 0x01);
 			
 			if (type == null || eid == null)
@@ -448,7 +448,7 @@ public abstract class ProphetTLV extends TLV {
 		}
 		
 		public BundleResponse(BundleSpec[] responses) {
-			super((byte) 0xA4);
+			super((byte) 0xA5);
 			
 			final int respos_count = responses.length;
 			
