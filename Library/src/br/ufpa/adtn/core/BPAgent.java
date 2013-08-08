@@ -409,14 +409,24 @@ public final class BPAgent {
 			for (final RouterStub<?, ?> stub : routers)
 				stub.router.notifyLinkNear(link);
 		}
-
-//		final Collection<Bundle> bundles = bOutbox.searchBundles(eid);
-//		if (!bundles.isEmpty()) {
-//			LOGGER.i("Sending bundles directly");
-//			link.sendAll(bundles);
-//		}
+		flushBundles(link);
 	}
 	
+	public static void flushBundles(Link link) {
+		final Collection<Bundle> bundles = bOutbox.searchBundles(link.getEndpointID());
+		if (!bundles.isEmpty()) {
+			LOGGER.i("Sending bundles directly");
+			link.sendAll(bundles);
+		}
+	}
+	
+	public static void flushBundles(EID eid) {
+		final Collection<Bundle> bundles = bOutbox.searchBundles(eid);
+		if (!bundles.isEmpty()) {
+			LOGGER.i("Sending bundles directly");
+			Link.get(eid).sendAll(bundles);
+		}
+	}
 	
 	/*
 	 * STORAGE ACCESS

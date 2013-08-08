@@ -28,6 +28,17 @@ import br.ufpa.adtn.util.EventQueue;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.Properties;
 
+/**
+ * A. Lindgren, A. Doria,  E. Davies, S. Grasicm, Probabilistic Routing Protocol for Intermittently
+ * Connected Networks, RFC 6693, August 2012.
+ * 
+ * This is the main PROPHET routing class. Responsible for storing the engine race condition
+ * to start communication with another node. Moreover, it has to interface with the BPA to
+ * consult Bundles available. Stores the instance of ProphetDataRouting and distributes to
+ * all ProphetLinkConnections created. Implements the notification method of near communication link. 
+ * 
+ * @author Douglas Cirqueira
+ */
 public class ProphetBundleRouter extends BundleRouter<ProphetBundleRouter, ProphetLinkConnection> {
 	private static final Logger LOGGER = new Logger("ProphetRouter");
 	private static final int MAX_AUSENCE_TIME = 20000;

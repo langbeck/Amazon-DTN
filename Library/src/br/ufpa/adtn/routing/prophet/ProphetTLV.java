@@ -31,6 +31,13 @@ import br.ufpa.adtn.routing.TLV;
 import br.ufpa.adtn.routing.TLVParsingException;
 import br.ufpa.adtn.util.SDNV;
 
+/**
+ * This class is responsible to store all Message TLV formats present and used in the
+ * operation of PROPHET routing protocol. The serializing and deserialization process of
+ * all TLVs are made here.
+ * 
+ * @author Douglas Cirqueira
+ */
 public abstract class ProphetTLV extends TLV {
 	private static final byte HELLO 			= 0x01;
 	private static final byte ERROR 			= 0x02;
@@ -224,17 +231,16 @@ public abstract class ProphetTLV extends TLV {
 			int len = SDNV.length(rib_len);	 // RIBStringCount
 			this.rib = new PredictEntry[rib_len];
 			for (int i = 0; i < rib_len; i++) {
-				final NeighborPredict nWeight = rib[i];
-				final EID eid = nWeight.getEID();
+				final NeighborPredict nPred = rib[i];
+				final EID eid = nPred.getEID();
 				int index = eids.indexOf(eid);
 				if (index == -1) {
 					index = eids.size();
 					eids.add(eid);
 				}
 				
-				final int dlen = eid.getDataLength();
-				len += dlen + SDNV.length(dlen) + SDNV.length(index);
-				this.rib[i] = new PredictEntry(index, nWeight.getPredict());
+				len += SDNV.length(index) + 4;
+				this.rib[i] = new PredictEntry(index, nPred.getPredict());
 			}
 			
 			final int eids_len = eids.size();

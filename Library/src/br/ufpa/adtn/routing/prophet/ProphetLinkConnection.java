@@ -25,6 +25,14 @@ import br.ufpa.adtn.routing.prophet.ProphetDataRouting.NeighborPredict;
 import br.ufpa.adtn.routing.prophet.ProphetUtil.BundleSpec;
 import br.ufpa.adtn.util.Logger;
 
+/**
+ * This class is the abstraction of a communication link with a PROPHET node. Responsible for
+ * implementing the method of triggering parked event to begin the process of communication
+ * with other neighbor, creating a ProphetMessageConnection. Has decision logic of Protocol
+ * to set bundle routes according to their delivery predictability metric.
+ * 
+ * @author Douglas Cirqueira
+ */
 public class ProphetLinkConnection extends MessageLinkConnection<ProphetLinkConnection, ProphetBundleRouter, ProphetMessageConnection, ProphetTLV> {
 	private static final Logger LOGGER = new Logger("ProphetLinkConnection");
 	

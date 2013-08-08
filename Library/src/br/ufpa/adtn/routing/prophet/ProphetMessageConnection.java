@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
+import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.routing.MessageConnection;
 import br.ufpa.adtn.routing.ResponseListener;
 import br.ufpa.adtn.routing.prophet.ProphetTLV.BundleOffer;
@@ -31,6 +32,12 @@ import br.ufpa.adtn.routing.prophet.ProphetTLV.RoutingInformation;
 import br.ufpa.adtn.routing.prophet.ProphetUtil.BundleSpec;
 import br.ufpa.adtn.util.Logger;
 
+/**
+ * This class has all the mechanism of communication states of the nodes, plus metadata 
+ * exchange sequence between them.
+ * 
+ * @author Douglas Cirqueira
+ */
 public class ProphetMessageConnection extends MessageConnection<ProphetLinkConnection, ProphetTLV, ProphetMessageConnection> {
 	private static final Logger LOGGER = new Logger("ProphetMessageConnection");
 	public enum State {UNDEFINED, SYNSENT, ESTAB, INFO_EXCH, FINISHED}
@@ -186,6 +193,7 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 		);
 		
 		changeState(State.FINISHED);
+		conn.unpark();
 		LOGGER.i("BundleResponse sent to " + getRegistrationEndpointID());
 	}
 	
@@ -250,9 +258,10 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 		public void onReceived(int id, ProphetTLV tlv) {
 			if (tlv instanceof BundleResponse) {
 				final BundleResponse response = (BundleResponse) tlv;
-				BundleSpec[] responses = response.getResponses();
-				// TODO Pushing Bundles in responses.
+				//TODO send only response Bundles.
+				BundleSpec[] responses = response.getResponses(); 
 				LOGGER.i("BundleResponse received. Pushing Bundles to " + getRegistrationEndpointID());
+				BPAgent.flushBundles(getLinkConnection().getLink());
 			} else {
 				LOGGER.w("BundleOfferListener not received a Response TLV [IGNORING]");
 			}

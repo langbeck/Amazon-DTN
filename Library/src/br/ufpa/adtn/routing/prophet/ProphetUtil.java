@@ -22,6 +22,11 @@ import java.util.Collection;
 import br.ufpa.adtn.bundle.Bundle;
 import br.ufpa.adtn.core.EID;
 
+/**
+ * Stores useful classes and mechanisms to operation of the protocol.
+ * 
+ * @author Douglas Cirqueira
+ */
 public class ProphetUtil {
 	public static BundleSpec[] getSpec(Collection<Bundle> bundles) {
 		final BundleSpec[] specs = new BundleSpec[bundles.size()];

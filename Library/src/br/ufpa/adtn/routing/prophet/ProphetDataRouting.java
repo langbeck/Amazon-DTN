@@ -22,8 +22,16 @@ import java.util.HashMap;
 import java.util.Map;
 
 import br.ufpa.adtn.core.EID;
+import br.ufpa.adtn.core.SystemClock;
 import br.ufpa.adtn.util.Logger;
 
+/**
+ * This class concentrates the logic of the calculations of the protocol, with all the formulas 
+ * needed to obtain the delivery predictability for each neighbor. It also stores a class 
+ * abstraction with necessary data for identification and characteristics of a PROPHET node.
+ * 
+ * @author Douglas Cirqueira
+ */
 public class ProphetDataRouting {
 	private static final Logger LOGGER = new Logger("ProphetDataRouting");
 	
@@ -47,6 +55,11 @@ public class ProphetDataRouting {
 	public NeighborPredict[] getNeighborsPredicts() {
 		final int len = neighbors.size();
 		final NeighborPredict[] preds = new NeighborPredict[len];
+		if (len == 0)
+			LOGGER.d("WARNING!!! NEIGHBORS IS EMPTY!!!");
+		else
+			LOGGER.d("WARNING!!! NEIGHBORS HAS VALUES!!!");
+			
 		int i = 0;
 		for (Neighbor n : neighbors.values()){
 			preds[i] = new NeighborPredict(n.eid, n.p_value);
@@ -81,28 +94,25 @@ public class ProphetDataRouting {
 	private class Neighbor {
 		private final EID eid;
 		private float p_value = P_ENCOUNTER_FIRST;
-		private float P_ENCOUNTER;
-		private long last_age = new Date().getTime();
+		private float p_encounter;
+		private long last_age;
 		
 		public Neighbor(EID eid) {
 			this.eid = eid;
+			last_age = SystemClock.millis();
 		}
 		
 		private void p_encounterCalc() {
-			final long intvl = last_age - new Date().getTime();
+			final long intvl = last_age - SystemClock.millis();
 			
-			if (intvl <= I_TYP)
-				P_ENCOUNTER = P_ENCOUNTER_MAX * (intvl / I_TYP);
-			else
-				P_ENCOUNTER = P_ENCOUNTER_MAX;
-			
+			p_encounter = P_ENCOUNTER_MAX * (intvl <= I_TYP ? (intvl / I_TYP) : 1);
 			predictCalc();
 		}
 		
 		private void predictCalc() {
 			ageCalc();
-			this.p_value = p_value + ((1 - DELTA - p_value) * P_ENCOUNTER);
-			last_age = new Date().getTime();
+			this.p_value = p_value + ((1 - DELTA - p_value) * p_encounter);
+			last_age = SystemClock.millis();
 			
 			LOGGER.d(String.format("predictCalc: updating p_value of %s to %f", eid, p_value));
 		}
@@ -110,13 +120,13 @@ public class ProphetDataRouting {
 		public void transitPredictCalc(float p_ab, float p_bc) {
 			ageCalc();
 			this.p_value = Math.max(p_value, (p_ab * p_bc * BETA));
-			last_age = new Date().getTime();
+			last_age = SystemClock.millis();
 			
 			LOGGER.d(String.format("transitPredictCalc: updating p_value of %s to %f", eid, p_value));
 		}
 		
 		private void ageCalc() {
-			float K_fact = (last_age - new Date().getTime()) / K;
+			float K_fact = (last_age - SystemClock.millis()) / K;
 			this.p_value = (float) (p_value * Math.pow(GAMMA, K_fact));
 		}
 	}
