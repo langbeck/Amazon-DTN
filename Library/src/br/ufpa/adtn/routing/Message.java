@@ -25,6 +25,7 @@ import java.util.List;
 
 import br.ufpa.adtn.core.ParsingException;
 import br.ufpa.adtn.core.SerializableEntity;
+import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.SDNV;
 
 public class Message<T extends TLV> implements SerializableEntity {
@@ -239,6 +240,7 @@ public class Message<T extends TLV> implements SerializableEntity {
 			int spos = buffer.position();
 			for (TLV tlv : tlvList) {
 				final int len = tlv.getLength();
+				Logger.e("TLV-Size", "In Message: " + tlv.getLength());
 				buffer.limit(spos + len);
 				tlv.serialize(buffer.slice());
 				

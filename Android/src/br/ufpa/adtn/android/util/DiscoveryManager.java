@@ -17,6 +17,8 @@
  */
 package br.ufpa.adtn.android.util;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -24,7 +26,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -40,8 +41,6 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Handler;
 import android.os.Message;
-import android.os.ParcelUuid;
-import android.os.Parcelable;
 import br.ufpa.adtn.core.InformationHub;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.TrafficMeter;
@@ -69,8 +68,7 @@ public final class DiscoveryManager {
 	
 	
 	public static class Service extends Handler {
-		private static final Logger LOGGER 			= new Logger(DiscoveryManager.LOGGER, "Service");
-		private static final TrafficMeter IO_METER	= InformationHub.DISCOVERY_METER;
+		private static final Logger LOGGER = new Logger(DiscoveryManager.LOGGER, "Service");
 		private static final short HEADER_HANDSHAKE	= (short) 0x10D0;
 		private static final short HEADER_REFUSE	= (short) 0xDEAD;
 		
@@ -87,16 +85,16 @@ public final class DiscoveryManager {
 		}
 		
 
-		private final Map<BluetoothDevice, DeviceInformation> deviceMap;
-		private final Set<DeviceInformation> devices;
 		private final Set<BluetoothDevice> connected;
 		private final Map<String, CacheEntry> cache;
+		private final Set<BluetoothDevice> devices;
 		private final BluetoothServerSocket record;
 		private final BroadcastReceiver receiver;
 		private final BluetoothAdapter adapter;
 		private final ExecutorService executor;
-		private final UUID discoveryUUID;
-		private final UUID serviceUUID;
+		private final TrafficMeter io_meter;
+		private final UUID discovery_uuid;
+		private final UUID service_uuid;
 		private final Context context;
 		private final Thread thread;
 		private final String eid;
@@ -116,19 +114,19 @@ public final class DiscoveryManager {
 			super(LooperFactory.createLooper());
 			this.adapter = BluetoothAdapter.getDefaultAdapter();
 			this.record = adapter.listenUsingInsecureRfcommWithServiceRecord(LOGGER.getTag(), discovery_uuid);
-
-			this.deviceMap = new HashMap<BluetoothDevice, DeviceInformation>();
-			this.devices = new TreeSet<DeviceInformation>();
+			
+			this.io_meter = InformationHub.DISCOVERY_METER;
 			this.executor = Executors.newCachedThreadPool();
 			this.connected = new HashSet<BluetoothDevice>();
 			this.cache = new HashMap<String, CacheEntry>();
+			this.devices = new HashSet<BluetoothDevice>();
 
 			this.discoveryRestartDelay = DEFAULT_RESTART_DELAY;
 			this.discoveryResumeRequested = false;
 			this.discoveryPausedRequested = false;
 			this.wdtTimeout = DEFAULT_WDT_TIMEOUT;
-			this.discoveryUUID = discovery_uuid;
-			this.serviceUUID = service_uuid;
+			this.discovery_uuid = discovery_uuid;
+			this.service_uuid = service_uuid;
 			this.discoveryRunning = false;
 			this.discoveryPaused = true;
 			this.cacheTTL = 60000L;
@@ -166,46 +164,8 @@ public final class DiscoveryManager {
 						discoveryFinished();
 						return;
 					}
-					
-					// TODO Remove or improve it
-					if (action.equals(BluetoothDevice.ACTION_UUID)) {
-						if (discoveryRunning) {
-							LOGGER.w("ACTION_UUID fired while discovery is running. [IGNORING]");
-							return;
-						}
-						
-						final BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-						final Parcelable[] uuids = intent.getParcelableArrayExtra(BluetoothDevice.EXTRA_UUID);
-						if (uuids == null) {
-							LOGGER.e("No UUIDs received");
-							return;
-						}
-						
-						LOGGER.i("BluetoothDevice.ACTION_UUID to " + device.getAddress());
-						for (final Parcelable p_uuid : uuids) {
-							final UUID uuid = ((ParcelUuid) p_uuid).getUuid();
-							
-							if (uuid.equals(discoveryUUID)) {
-								LOGGER.i("Service found! Starting InformationExchanger.");
-								
-								sendMessage(obtainMessage(
-										MSG_CHECK_FOR_SERVICE,
-										new InfoExchanger(device)
-								));
-								return;
-							}
-						}
-						
-						LOGGER.i("Service not found!");
-						unregisterDevice(device);
-						return;
-					}
 				}
 			};
-		}
-		
-		public TrafficMeter getTrafficMeter() {
-			return IO_METER;
 		}
 		
 		private void checkService() {
@@ -283,7 +243,6 @@ public final class DiscoveryManager {
 			intent.addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED);
 			intent.addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED);
 			intent.addAction(BluetoothDevice.ACTION_FOUND);
-			intent.addAction(BluetoothDevice.ACTION_UUID);
 			
 			context.registerReceiver(receiver, intent, null, this);
 
@@ -337,33 +296,6 @@ public final class DiscoveryManager {
 
 			discoveryRunning = true;
 		}
-		
-		private void registerDevice(BluetoothDevice device, short rssi) {
-			final DeviceInformation info = new DeviceInformation(device, rssi);
-			deviceMap.put(device, info);
-			devices.add(info);
-		}
-		
-		private void removeDevice(DeviceInformation info) {
-			deviceMap.remove(info.device);
-			devices.remove(info);
-		}
-		
-		private void removeDevice(BluetoothDevice device) {
-			final DeviceInformation info = deviceMap.get(device);
-			if (info == null) {
-				LOGGER.w("Device map not found to device " + device);
-				return;
-			}
-			
-			deviceMap.remove(device);
-			devices.remove(info);
-		}
-		
-		private void devicesClear() {
-			deviceMap.clear();
-			devices.clear();
-		}
 
 		private void discoveryFinished() {
 			if (discoveryPaused) {
@@ -377,7 +309,7 @@ public final class DiscoveryManager {
 				LOGGER.v("Discovery paused.");
 				discoveryPausedRequested = false;
 				discoveryPaused = true;
-				devicesClear();
+				devices.clear();
 			} else {
 				LOGGER.v("Discovery finished.");
 	
@@ -391,10 +323,12 @@ public final class DiscoveryManager {
 					}
 					
 					final int ndevs = devices.size();
-					LOGGER.v("Fetching devices UUIDs from " + ndevs + " devices.");
-					for (DeviceInformation info : devices) {
-						if (!info.device.fetchUuidsWithSdp())
-							unregisterDevice(info);
+					LOGGER.v("Starting service checker against " + ndevs + " devices.");
+					for (BluetoothDevice device : devices) {
+						sendMessage(obtainMessage(
+								MSG_CHECK_FOR_SERVICE,
+								new InfoExchanger(device)
+						));
 					}
 				}
 			}
@@ -444,7 +378,7 @@ public final class DiscoveryManager {
 							}
 
 							LOGGER.v("Trying to connect to discovery service of device " + device.getAddress());
-							socket = device.createInsecureRfcommSocketToServiceRecord(discoveryUUID);
+							socket = device.createInsecureRfcommSocketToServiceRecord(discovery_uuid);
 							socket.connect();
 
 							LOGGER.v("Connected to device " + address);
@@ -461,9 +395,12 @@ public final class DiscoveryManager {
 							return;
 						}
 					}
+
+					final BufferedOutputStream bos = new BufferedOutputStream(socket.getOutputStream());
+					final BufferedInputStream bis = new BufferedInputStream(socket.getInputStream());
 					
-					final DataOutputStream out = new DataOutputStream(IO_METER.wrap(socket.getOutputStream()));
-					final DataInputStream in = new DataInputStream(IO_METER.wrap(socket.getInputStream()));
+					final DataOutputStream out = new DataOutputStream(io_meter.wrap(bos));
+					final DataInputStream in = new DataInputStream(io_meter.wrap(bis));
 
 					out.writeShort(HEADER_HANDSHAKE);
 					out.flush();
@@ -475,8 +412,8 @@ public final class DiscoveryManager {
 					}
 
 					LOGGER.v("Sending discovery information");
-					out.writeLong(serviceUUID.getMostSignificantBits());
-					out.writeLong(serviceUUID.getLeastSignificantBits());
+					out.writeLong(service_uuid.getMostSignificantBits());
+					out.writeLong(service_uuid.getLeastSignificantBits());
 					out.writeUTF(eid);
 					out.flush();
 					
@@ -524,17 +461,9 @@ public final class DiscoveryManager {
 			sendMessage(obtainMessage(MSG_REGISTER_TO_CACHE, new CacheEntry(addr, eid, uuid)));
 			sendMessageDelayed(obtainMessage(MSG_REMOVE_FROM_CACHE, addr), cacheTTL);
 		}
-
+		
 		private void unregisterDevice(BluetoothDevice device) {
-			LOGGER.e("unregisterDevice(BluetoothDevice)");
-			
 			sendMessage(obtainMessage(MSG_REMOVE_DEVICE, device));
-		}
-
-		private void unregisterDevice(DeviceInformation info) {
-			LOGGER.e("unregisterDevice(DeviceInformation)");
-			
-			sendMessage(obtainMessage(MSG_REMOVE_DEVICE, info));
 		}
 
 		private void deviceDiscovered(BluetoothDevice device, short rssi) {
@@ -553,11 +482,10 @@ public final class DiscoveryManager {
 		
 		private void startDiscovery() {
 			LOGGER.v("Discovery start requested");
-			removeMessages(MSG_REMOVE_DEVICE);
 			removeMessages(MSG_WDT_TIMEOUT);
-			devicesClear();
-			
 			sendEmptyMessageDelayed(MSG_START_DISCOVERY, discoveryRestartDelay);
+			
+//			sendEmptyMessageDelayed(MSG_SUBMIT_WACTHER, discoveryRestartDelay);
 		}
 
 		@Override
@@ -603,27 +531,16 @@ public final class DiscoveryManager {
 				
 				case MSG_REMOVE_DEVICE: {
 					if (discoveryRunning) {
-						LOGGER.e("Device remove requested while discovery is running.", new Exception("Stack-Tracer"));
+						LOGGER.e("Device remove requested while discovery is running.");
 						return;
 					}
 					
-					final Object o = msg.obj;
-					if (o instanceof DeviceInformation)
-						removeDevice((DeviceInformation) o);
-					
-					else if (o instanceof BluetoothDevice)
-						removeDevice((BluetoothDevice) o);
-					
-					else
-						LOGGER.e("Unexpected usage error.");
-					
+					final BluetoothDevice device = (BluetoothDevice) msg.obj;
+					LOGGER.i("+ MSG_REMOVE_DEVICE: " + device.getAddress() + " / Contains: " + devices);
+					devices.remove(device);
+					LOGGER.i("- MSG_REMOVE_DEVICE: " + device.getAddress() + " / Contains: " + devices);
 					
 					if (devices.isEmpty()) {
-						if (!deviceMap.isEmpty()) {
-							LOGGER.w("Device map sync error");
-							deviceMap.clear();
-						}
-						
 						LOGGER.v("All service checkers ended.");
 						startDiscovery();
 					}
@@ -637,10 +554,8 @@ public final class DiscoveryManager {
 					}
 					
 					final BluetoothDevice device = (BluetoothDevice) msg.obj;
-					final short rssi = (short) msg.arg1;
-					
-					LOGGER.v("Registering device: " + device.getAddress() + " [RSSI=" + rssi + "]");
-					registerDevice(device, rssi);
+					LOGGER.v("Registering device: " + device.getAddress() + " [RSSI=" + msg.arg1 + "]");
+					devices.add(device);
 					break;
 				}
 				
@@ -683,7 +598,7 @@ public final class DiscoveryManager {
 								
 								final long delta = discoveryRestartDelay - (System.currentTimeMillis() - start);
 								if (delta > 0) {
-									LOGGER.v("Posting start discovs.ery request in " + delta + "ms");
+									LOGGER.v("Posting start discovery request in " + delta + "ms");
 									sendEmptyMessageDelayed(MSG_START_DISCOVERY, delta);
 								} else {
 									LOGGER.v("Posting start discovery request now.");
@@ -703,22 +618,6 @@ public final class DiscoveryManager {
 			
 			//Return this Message to the global pool
 //			msg.recycle();
-		}
-	}
-	
-	
-	private static class DeviceInformation implements Comparable<DeviceInformation> {
-		private final BluetoothDevice device;
-		private final short rssi;
-
-		public DeviceInformation(BluetoothDevice device, short rssi) {
-			this.device = device;
-			this.rssi = rssi;
-		}
-		
-		@Override
-		public int compareTo(DeviceInformation o) {
-			return o.rssi - rssi;
 		}
 	}
 	

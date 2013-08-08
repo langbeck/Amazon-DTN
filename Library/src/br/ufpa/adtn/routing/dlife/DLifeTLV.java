@@ -300,8 +300,7 @@ public abstract class DLifeTLV extends TLV {
 					eids.add(eid);
 				}
 				
-				final int dlen = eid.getDataLength();
-				len += dlen + SDNV.length(dlen) + SDNV.length(index);
+				len += SDNV.length(index) + 4;
 				this.swni[i] = new WeightEntry(index, nWeight.getWeight());
 			}
 

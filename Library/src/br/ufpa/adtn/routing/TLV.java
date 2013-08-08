@@ -47,9 +47,9 @@ public abstract class TLV implements SerializableEntity {
 	}
 	
 	public final int getLength() {
-		int tlen = getDataLength() + 3;
+		int tlen = getDataLength() + 2;
 		final int llen = SDNV.length(tlen);
-		if (SDNV.length(tlen + llen) != llen)
+		if (SDNV.length(tlen += llen) != llen)
 			tlen++;
 		
 		return tlen;
@@ -61,8 +61,10 @@ public abstract class TLV implements SerializableEntity {
 		buffer.put(flags);
 		SDNV.encodeInt(buffer, getLength());
 		
-		//Define a limit to new sub-buffer created by ByteBuffer.slice()
+		// Define a limit to new sub-buffer created by ByteBuffer.slice()
 		buffer.limit(buffer.position() + getDataLength());
+		
+		Logger.e("TLV-Size", "In TLV: " + buffer.limit());
 		serializeTLV(buffer.slice());
 	}
 	
