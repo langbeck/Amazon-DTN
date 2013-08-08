@@ -70,7 +70,7 @@ public class ProphetLinkConnection extends MessageLinkConnection<ProphetLinkConn
 			final NeighborPredict np = preds[i];
 			final EID c_eid = np.getEID();
 			
-			if (c_eid == getLocalEndpointID())
+			if (c_eid.equals(getLocalEndpointID()))
 				continue;
 			
 			final float p_ac = dataRout.getPredict(c_eid);
