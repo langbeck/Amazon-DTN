@@ -32,9 +32,9 @@ import br.ufpa.adtn.routing.TLVParsingException;
 import br.ufpa.adtn.util.SDNV;
 
 /**
- * This class is responsible to store all Message TLV formats present and used in the
- * operation of PROPHET routing protocol. The serializing and deserialization process of
- * all TLVs are made here.
+ * This class is responsible to store all Message TLV formats present and used
+ * in the operation of PROPHET routing protocol. The serializing and
+ * deserialization process of all TLVs are made here.
  * 
  * @author Douglas Cirqueira
  */

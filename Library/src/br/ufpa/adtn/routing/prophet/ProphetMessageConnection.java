@@ -33,8 +33,8 @@ import br.ufpa.adtn.routing.prophet.ProphetUtil.BundleSpec;
 import br.ufpa.adtn.util.Logger;
 
 /**
- * This class has all the mechanism of communication states of the nodes, plus metadata 
- * exchange sequence between them.
+ * This class has all the mechanism of communication states of the nodes, plus
+ * metadata exchange sequence between them.
  * 
  * @author Douglas Cirqueira
  */
@@ -209,7 +209,8 @@ public class ProphetMessageConnection extends MessageConnection<ProphetLinkConne
 					sendHelloACK(id);
 				} else {
 					LOGGER.w(String.format(
-							"HelloResponseListener received a Hello TLV with type %s, but an SYNACK was expected [IGNORING]",
+							"HelloResponseListener received a Hello TLV with type %s, " +
+							"but an SYNACK was expected [IGNORING]",
 							hello.getHelloType()
 					));
 				}

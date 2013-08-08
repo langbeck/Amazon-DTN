@@ -26,9 +26,10 @@ import br.ufpa.adtn.core.SystemClock;
 import br.ufpa.adtn.util.Logger;
 
 /**
- * This class concentrates the logic of the calculations of the protocol, with all the formulas 
- * needed to obtain the delivery predictability for each neighbor. It also stores a class 
- * abstraction with necessary data for identification and characteristics of a PROPHET node.
+ * This class concentrates the logic of the calculations of the protocol, with 
+ * all the formulas needed to obtain the delivery predictability for each
+ * neighbor. It also stores a class abstraction with necessary data for 
+ * identification and characteristics of a PROPHET node.
  * 
  * @author Douglas Cirqueira
  */
@@ -103,14 +104,16 @@ public class ProphetDataRouting {
 		}
 		
 		private void p_encounterCalc() {
-			final long intvl = last_age - SystemClock.millis();
+			final long intvl =  SystemClock.millis() - last_age;
+			LOGGER.d("INTVL = " + intvl);
 			
-			p_encounter = P_ENCOUNTER_MAX * (intvl <= I_TYP ? (intvl / I_TYP) : 1);
+			p_encounter = P_ENCOUNTER_MAX * (intvl <= I_TYP ? ((float) intvl / I_TYP) : 1);
 			predictCalc();
 		}
 		
 		private void predictCalc() {
 			ageCalc();
+			LOGGER.d("p_encounter = " + p_encounter);
 			this.p_value = p_value + ((1 - DELTA - p_value) * p_encounter);
 			last_age = SystemClock.millis();
 			
