@@ -57,8 +57,8 @@ public class TrafficSummaryFragment extends FragmentPager implements Runnable {
 		}
 		
 		final BundleHub bundle = InformationHub.BUNDLE;
-		bRecv.setText(String.valueOf(bundle.getReceived()));
-		bSent.setText(String.valueOf(bundle.getSent()));
+		bRecv.setText(String.valueOf(bundle.getReceivedBundles()));
+		bSent.setText(String.valueOf(bundle.getSentBundles()));
 		
 		TrafficMeter meter;
 

@@ -45,25 +45,27 @@ public class BundleGenerator extends PeriodicEvent {
 		
 		synchronized (destinations) {
 			for (EID destination : destinations) {
-				final String strFiller = String.format(
-						"[Bundle #%d from \"%s\" for \"%s\" at %d ms] ",
+				final byte[] filler = String.format(
+						"[Bundle #%d for \"%s\" at %d ms] ",
 						gSequence++, destination.toString(), now
-				);
-				
-				final byte[] filler = strFiller.getBytes();
+				).getBytes();
 				final byte[] payload = new byte[bSize];
 				for (int i = 0, len = payload.length, flen = filler.length; i < len; i++)
 					payload[i] = filler[i % flen];
 				
-				LOGGER.v(strFiller);
-				BPAgent.addBundle(new Bundle(
+				final Bundle bundle = new Bundle(
 						BundleInfo.create(
 								destination,
-								BPAgent.getHostEID(),
-								payload.length
+								BPAgent.getHostEID()
 						),
 						DataBlock.wrap(payload)
+				);
+				
+				LOGGER.v(String.format(
+						"Created to \"%s\" [ID:%016x]",
+						destination, bundle.getUniqueID() 
 				));
+				BPAgent.addBundle(bundle);
 			}
 		}
 	}

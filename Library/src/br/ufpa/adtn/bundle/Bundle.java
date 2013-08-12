@@ -33,6 +33,7 @@ public final class Bundle implements SerializableSegmentedObject {
 	
 	public Bundle(ByteBuffer buffer) {
 		this.info = BundleInfo.parse(buffer);
+		info.attach(this);
 		
 		if (buffer.get() != (byte) 1)
 			throw new RuntimeException("Wrong block type");
@@ -47,14 +48,15 @@ public final class Bundle implements SerializableSegmentedObject {
 	}
 	
 	public Bundle(BundleInfo info, DataBlock payload) {
-		if (payload == null)
+		if (info == null || payload == null)
 			throw new NullPointerException();
 		
-		if (info.getDataLength() != payload.getLength())
-			throw new IllegalArgumentException("Sizes doesn't match");
+		if (info.isAttached())
+			throw new IllegalArgumentException("BundleInfo already attached");
 		
 		this.payload = payload;
 		this.info = info;
+		info.attach(this);
 	}
 	
 	/**
@@ -77,6 +79,42 @@ public final class Bundle implements SerializableSegmentedObject {
 	
 	public BundleInfo getInfo() {
 		return info;
+	}
+	
+	public long getUniqueID() {
+		return info.getUniqueID();
+	}
+
+	public int getLength() {
+		final int plen = payload.getLength();
+		return	info.getBlockLength() +
+				SDNV.length(plen) +
+				plen + 2;
+	}
+
+	@Override
+	public int hashCode() {
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ((info == null) ? 0 : info.hashCode());
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)
+			return true;
+		if (obj == null)
+			return false;
+		if (getClass() != obj.getClass())
+			return false;
+		Bundle other = (Bundle) obj;
+		if (info == null) {
+			if (other.info != null)
+				return false;
+		} else if (!info.equals(other.info))
+			return false;
+		return true;
 	}
 
 	@Override

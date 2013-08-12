@@ -61,8 +61,7 @@ public class BundleBuilder {
 		return new Bundle(
 				BundleInfo.create(
 						destination,
-						source,
-						payload.limit()
+						source
 				),
 				DataBlock.wrap(payload)
 		);

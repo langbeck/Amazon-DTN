@@ -37,53 +37,73 @@ public class InformationHub {
 	
 	public static class BundleHub {
 		private final static Logger LOGGER = new Logger("BundleHub");
+		private int payloadReceived;
 		private int dataReceived;
+		private int payloadSent;
 		private int dataSent;
 		private int received;
 		private int sent;
 		
 		private BundleHub() {
+			this.payloadReceived = 0;
 			this.dataReceived = 0;
+			this.payloadSent = 0;
 			this.dataSent = 0;
 			this.received = 0;
 			this.sent = 0;
 		}
 		
-		public int getDataReceived() {
+		public int getReceivedOverhead() {
+			return dataReceived - payloadReceived;
+		}
+		
+		public int getSentOverhead() {
+			return dataSent - payloadSent;
+		}
+
+		public int getReceivedPayload() {
+			return payloadReceived;
+		}
+		
+		public int getSentPayload() {
+			return payloadSent;
+		}
+
+		public int getReceivedData() {
 			return dataReceived;
 		}
 		
-		public int getDataSent() {
+		public int getSentData() {
 			return dataSent;
 		}
 
-		public int getReceived() {
+		public int getReceivedBundles() {
 			return received;
 		}
 
-		public int getSent() {
+		public int getSentBundles() {
 			return sent;
 		}
 
 		public void onReceived(Bundle bundle) {
 			LOGGER.i(String.format(
-					"Received %s -> %s",
-					bundle.getSource(),
-					bundle.getDestination()
+					"Received [ID:%016x]",
+					bundle.getUniqueID()
 			));
 			
-			dataReceived += bundle.getPayload().getLength();
+			payloadReceived += bundle.getPayload().getLength();
+			dataReceived += bundle.getLength();
 			received++;
 		}
 		
 		public void onSent(Bundle bundle) {
 			LOGGER.i(String.format(
-					"Sent %s -> %s",
-					bundle.getSource(),
-					bundle.getDestination()
+					"Sent [ID:%016x]",
+					bundle.getUniqueID()
 			));
 			
-			dataSent += bundle.getPayload().getLength();
+			payloadSent += bundle.getPayload().getLength();
+			dataSent += bundle.getLength();
 			sent++;
 		}
 	}
@@ -139,8 +159,6 @@ public class InformationHub {
 		public void addDeviceNear(String device) {
 			devicesNear.add(device);
 		}
-		
-		
 	}
 	
 	
@@ -175,13 +193,36 @@ public class InformationHub {
 		protected void onEvent() {
 			final Date now = new Date(SystemClock.millis());
 
-			final BundleHub bundle = InformationHub.BUNDLE;
+			BundleHub bundle;
+			
+			bundle = InformationHub.BUNDLE;
 			LOGGER.i(String.format(
-					"(%s) Bundles [ %d / %d ]",
+					"(%s) AllBundles [ Number: %d / %d ; Payload: %d / %d ; Data: %d / %d ; Overhead: %d / %d ]",
 					now,
-					bundle.getReceived(),
-					bundle.getSent()
+					bundle.getReceivedBundles(),
+					bundle.getSentBundles(),
+					bundle.getReceivedPayload(),
+					bundle.getSentPayload(),
+					bundle.getReceivedData(),
+					bundle.getSentData(),
+					bundle.getReceivedOverhead(),
+					bundle.getSentOverhead()
 			));
+			
+			bundle = InformationHub.DATA_BUNDLE;
+			LOGGER.i(String.format(
+					"(%s) DataBundles [ Number: %d / %d ; Payload: %d / %d ; Data: %d / %d ; Overhead: %d / %d ]",
+					now,
+					bundle.getReceivedBundles(),
+					bundle.getSentBundles(),
+					bundle.getReceivedPayload(),
+					bundle.getSentPayload(),
+					bundle.getReceivedData(),
+					bundle.getSentData(),
+					bundle.getReceivedOverhead(),
+					bundle.getSentOverhead()
+			));
+			
 			
 			TrafficMeter meter;
 

@@ -18,7 +18,9 @@
 package br.ufpa.adtn.bundle;
 
 import java.nio.ByteBuffer;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 
 import br.ufpa.adtn.core.BPAgent;
@@ -57,21 +59,29 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		return new BundleInfo(buffer);
 	}
 
-	public static BundleInfo create(EID destination, EID source, int size) {
+	public static BundleInfo create(EID destination, EID source) {
 		return create(
 				destination,
 				EID.NULL,
 				EID.NULL,
+				source
+		);
+	}
+	
+	public static BundleInfo create(EID destination, EID source, EID reportTo, EID custodian) {
+		return create(
+				destination,
 				source,
+				reportTo,
+				custodian,
 				0,
-				size,
 				0,
 				0
 		);
 	}
 	
-	public static BundleInfo create(EID destination, EID custodian,
-			EID reportTo, EID source, int fragment_offset, int data_len,
+	public static BundleInfo create(EID destination, EID source,
+			EID reportTo, EID custodian, int fragment_offset,
 			int total_data_len, int flags) {
 		
 		return create(destination,
@@ -79,7 +89,6 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				reportTo,
 				source,
 				fragment_offset,
-				data_len,
 				total_data_len,
 				DEFAULT_LIFETIME,
 				flags
@@ -87,7 +96,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	}
 	
 	public synchronized static BundleInfo create(EID destination, EID custodian,
-			EID reportTo, EID source, int fragment_offset, int data_len,
+			EID reportTo, EID source, int fragment_offset,
 			int total_data_len, int lifetime, int flags) {
 		
 		final int now = (int) (SystemClock.millis() / 1000);
@@ -107,7 +116,6 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				now,
 				creation_seq,
 				fragment_offset,
-				data_len,
 				total_data_len,
 				lifetime,
 				flags
@@ -125,15 +133,18 @@ public final class BundleInfo implements SerializableSegmentedObject {
 
 	private final int fragment_offset;
 	private final int total_data_len;
-	private final int data_len;
 	
 	private final int lifetime;
 	private final int flags;
+
+	private Bundle bundle;
+	private int block_len;
 	
 	private BundleInfo(ByteBuffer buffer) throws ParsingException {
 		if (buffer.get() != BPAgent.VERSION)
 			throw new ParsingException("Version not supported");
 
+		final int p0 = buffer.position();
 		flags = SDNV.decodeInt(buffer);
 
 		final int length = SDNV.decodeInt(buffer);
@@ -156,36 +167,36 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		creation_seq = SDNV.decodeInt(buffer);
 		lifetime = SDNV.decodeInt(buffer);
 
-		final byte[] dictData = new byte[SDNV.decodeInt(buffer)];
-		buffer.get(dictData);
+		final byte[] data = new byte[SDNV.decodeInt(buffer)];
+		buffer.get(data);
 		
 		String scheme;
 		String ssp;
 		int offset;
 		int pos;
 
-		for (offset = offsets[0], pos = offset; dictData[pos] != (byte) 0; pos++);
-		scheme = new String(dictData, offset, pos - offset);
-		for (offset = offsets[1], pos = offset; dictData[pos] != (byte) 0; pos++);
-		ssp = new String(dictData, offset, pos - offset);
+		for (offset = offsets[0], pos = offset; data[pos] != (byte) 0; pos++);
+		scheme = new String(data, offset, pos - offset);
+		for (offset = offsets[1], pos = offset; data[pos] != (byte) 0; pos++);
+		ssp = new String(data, offset, pos - offset);
 		destination = EID.get(scheme, ssp);
 
-		for (offset = offsets[2], pos = offset; dictData[pos] != (byte) 0; pos++);
-		scheme = new String(dictData, offset, pos - offset);
-		for (offset = offsets[3], pos = offset; dictData[pos] != (byte) 0; pos++);
-		ssp = new String(dictData, offset, pos - offset);
+		for (offset = offsets[2], pos = offset; data[pos] != (byte) 0; pos++);
+		scheme = new String(data, offset, pos - offset);
+		for (offset = offsets[3], pos = offset; data[pos] != (byte) 0; pos++);
+		ssp = new String(data, offset, pos - offset);
 		source = EID.get(scheme, ssp);
 
-		for (offset = offsets[4], pos = offset; dictData[pos] != (byte) 0; pos++);
-		scheme = new String(dictData, offset, pos - offset);
-		for (offset = offsets[5], pos = offset; dictData[pos] != (byte) 0; pos++);
-		ssp = new String(dictData, offset, pos - offset);
+		for (offset = offsets[4], pos = offset; data[pos] != (byte) 0; pos++);
+		scheme = new String(data, offset, pos - offset);
+		for (offset = offsets[5], pos = offset; data[pos] != (byte) 0; pos++);
+		ssp = new String(data, offset, pos - offset);
 		reportTo = EID.get(scheme, ssp);
 		
-		for (offset = offsets[6], pos = offset; dictData[pos] != (byte) 0; pos++);
-		scheme = new String(dictData, offset, pos - offset);
-		for (offset = offsets[7], pos = offset; dictData[pos] != (byte) 0; pos++);
-		ssp = new String(dictData, offset, pos - offset);
+		for (offset = offsets[6], pos = offset; data[pos] != (byte) 0; pos++);
+		scheme = new String(data, offset, pos - offset);
+		for (offset = offsets[7], pos = offset; data[pos] != (byte) 0; pos++);
+		ssp = new String(data, offset, pos - offset);
 		custodian = EID.get(scheme, ssp);
 		
 		if (isFragment()) {
@@ -196,15 +207,17 @@ public final class BundleInfo implements SerializableSegmentedObject {
 			total_data_len = 0;
 		}
 		
-		if (length != (buffer.position() - start))
+		final int pf = buffer.position();
+		if (length != (pf - start))
 			throw new ParsingException("Buffer offset problem");
 		
-		data_len = -1;
+		block_len = pf - p0 + 1;
+		bundle = null;
 	}
 	
 	private BundleInfo(EID destination, EID custodian, EID reportTo, EID source,
 			int creation_time, int creation_seq, int fragment_offset,
-			int data_len, int total_data_len, int lifetime, int flags) {
+			int total_data_len, int lifetime, int flags) {
 		
 		this.destination = destination;
 		this.custodian = custodian;
@@ -213,34 +226,14 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		this.creation_time = creation_time;
 		this.creation_seq = creation_seq;
 		this.fragment_offset = fragment_offset;
-		this.data_len = data_len;
 		this.total_data_len = total_data_len;
 		this.lifetime = lifetime;
 		this.flags = flags;
+		
+		this.block_len = -1;
+		this.bundle = null;
 	}
 	
-	public BundleInfo createFragment(int offset, int length) {
-		if (isFragment())
-			throw new IllegalStateException("Bundle is already a fragment");
-		
-		if (!canFragment())
-			throw new IllegalStateException("Bundle can not be fragmented");
-		
-		return new BundleInfo(
-				destination,
-				custodian,
-				reportTo,
-				source,
-				creation_time,
-				creation_seq,
-				offset,
-				length,
-				total_data_len,
-				lifetime,
-				flags | BUNDLE_IS_A_FRAGMENT_FLAG
-		);
-	}
-
 	public EID getDestination() {
 		return destination;
 	}
@@ -274,7 +267,10 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	}
 
 	public int getDataLength() {
-		return data_len;
+		if (bundle == null)
+			throw new IllegalStateException("Not attached");
+		
+		return bundle.getPayload().getLength();
 	}
 
 	public int getLifetime() {
@@ -297,23 +293,208 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		return (flags & BUNDLE_IS_A_FRAGMENT_FLAG) != 0;
 	}
 	
-	private int[] serializeDictionary(ByteBuffer buffer) {
-		int[] offsets = new int[8];
+	public long getUniqueID() {
+		if (bundle == null)
+			throw new IllegalStateException("Not attached");
+		
+		int hi_result = 1;
+		int lo_result = 1;
+		
+		final int plen = bundle.getPayload().getLength();
+		final int src_hash = source.hashCode();
 
-		Set<String> strings = new LinkedHashSet<String>();
+		hi_result = 31 * hi_result + creation_time;
+		hi_result = 31 * hi_result + creation_seq;
+		hi_result = 31 * hi_result + src_hash;
+		hi_result = 31 * hi_result + plen;
+
+		lo_result = 23 * lo_result + creation_time;
+		lo_result = 23 * lo_result + creation_seq;
+		lo_result = 23 * lo_result + src_hash;
+		lo_result = 23 * lo_result + plen;
+		
+		if (isFragment()) {
+			hi_result = 31 * hi_result + fragment_offset;
+			hi_result = 31 * hi_result + total_data_len;
+
+			lo_result = 23 * lo_result + fragment_offset;
+			lo_result = 23 * lo_result + total_data_len;
+		}
+		
+		return (((long) hi_result) << 32) | ((long) lo_result);
+	}
+	
+	@Override
+	public int hashCode() {
+		if (bundle == null)
+			throw new IllegalStateException("Not attached");
+		
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + bundle.getPayload().getLength();
+		result = prime * result + source.hashCode();
+		result = prime * result + creation_time;
+		result = prime * result + creation_seq;
+		
+		if (isFragment()) {
+			result = prime * result + fragment_offset;
+			result = prime * result + total_data_len;
+		}
+		
+		return result;
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		if (this == obj)					return true;
+		if (obj == null)					return false;
+		if (getClass() != obj.getClass())	return false;
+		
+		final BundleInfo other = (BundleInfo) obj;
+		if (bundle == null || other.bundle == null)	return false;
+		if (creation_time != other.creation_time)	return false;
+		if (creation_seq != other.creation_seq)		return false;
+		
+		if (source == null) {
+			if (other.source != null)
+				return false;
+		} else if (!source.equals(other.source))
+			return false;
+
+		final boolean f0 = other.isFragment();
+		final boolean f1 = isFragment();
+		if (f0 ^ f1)
+			return false;
+		
+		if (f0 && f1) {
+			if (fragment_offset != other.fragment_offset)
+				return false;
+			if (total_data_len != other.total_data_len)
+				return false;	
+		}
+		
+		return true;
+	}
+
+	boolean isAttached() {
+		return bundle != null;
+	}
+	
+	void attach(Bundle bundle) {
+		if (bundle.getInfo() != this)
+			throw new IllegalArgumentException("Attachment must be reciprocal");
+		
+		if (this.bundle != null)
+			throw new IllegalStateException("Already attached");
+		
+		this.bundle = bundle;
+	}
+	
+	public int getBlockLength() {
+		if (block_len < 0)
+			block_len = getBlockLength0();
+		
+		return block_len;
+	}
+	
+	private int getBlockLength0() {
+		final Map<String, Integer> offsets = new HashMap<String, Integer>();
+		int glen =	SDNV.length(creation_time)	+
+					SDNV.length(creation_seq)	+
+					SDNV.length(lifetime);
+		
+		Integer offset;
+		int dlen = 0;
+		String str;
+
+		if ((offset = offsets.get(str = destination.getScheme())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+
+		if ((offset = offsets.get(str = destination.getSSP())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+		
+
+		if ((offset = offsets.get(str = source.getScheme())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+
+		if ((offset = offsets.get(str = source.getSSP())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+		
+
+		if ((offset = offsets.get(str = reportTo.getScheme())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+
+		if ((offset = offsets.get(str = reportTo.getSSP())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+		
+
+		if ((offset = offsets.get(str = custodian.getScheme())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+
+		if ((offset = offsets.get(str = custodian.getSSP())) == null) {
+			final int length = str.getBytes().length;
+			glen += SDNV.length(dlen);
+			dlen += length + 1;
+		} else {
+			glen += SDNV.length(offset);
+		}
+		
+		glen += dlen + SDNV.length(dlen);
+		if (isFragment())
+			glen += SDNV.length(fragment_offset) + SDNV.length(total_data_len);
+		
+		return 1 + SDNV.length(flags) + SDNV.length(glen) + glen;
+	}
+	
+	private int[] serializeDictionary(ByteBuffer buffer) {
+		final Set<String> strings = new LinkedHashSet<String>();
+		final int[] offsets = new int[8];
 		byte[] data = null;
 		int offset = 0;
 		
-		String str0 = destination.getScheme();
-		if (strings.add(str0)) {
-			offsets[0] = offset;
-			
-			data = str0.getBytes();
-			buffer.put(data).put((byte) 0);
-			offset += data.length + 1;
-		}
+		final String str0 = destination.getScheme();
+		offsets[0] = offset;
 		
-		String str1 = destination.getSSP();
+		data = str0.getBytes();
+		buffer.put(data).put((byte) 0);
+		offset += data.length + 1;
+		
+		final String str1 = destination.getSSP();
 		if (strings.add(str1)) {
 			offsets[1] = offset;
 
@@ -325,7 +506,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				offsets[1] = offsets[0];
 		}
 		
-		String str2 = source.getScheme();
+		final String str2 = source.getScheme();
 		if (strings.add(str2)) {
 			offsets[2] = offset;
 
@@ -339,7 +520,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				offsets[2] = offsets[1];
 		}
 		
-		String str3 = source.getSSP();
+		final String str3 = source.getSSP();
 		if (strings.add(str3)) {
 			offsets[3] = offset;
 
@@ -355,7 +536,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				offsets[3] = offsets[2];
 		}
 		
-		String str4 = reportTo.getScheme();
+		final String str4 = reportTo.getScheme();
 		if (strings.add(str4)) {
 			offsets[4] = offset;
 
@@ -373,7 +554,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				offsets[4] = offsets[3];
 		}
 		
-		String str5 = reportTo.getSSP();
+		final String str5 = reportTo.getSSP();
 		if (strings.add(str5)) {
 			offsets[5] = offset;
 
@@ -393,7 +574,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				offsets[5] = offsets[4];
 		}
 		
-		String str6 = custodian.getScheme();
+		final String str6 = custodian.getScheme();
 		if (strings.add(str6)) {
 			offsets[6] = offset;
 
@@ -415,7 +596,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				offsets[6] = offsets[5];
 		}
 		
-		String str7 = reportTo.getSSP();
+		final String str7 = custodian.getSSP();
 		if (strings.add(str7)) {
 			offsets[7] = offset;
 
