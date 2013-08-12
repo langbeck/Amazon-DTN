@@ -24,11 +24,10 @@ import java.util.Collections;
 import java.util.List;
 
 import br.ufpa.adtn.core.ParsingException;
-import br.ufpa.adtn.core.SerializableEntity;
-import br.ufpa.adtn.util.Logger;
+import br.ufpa.adtn.core.SerializableFixedObject;
 import br.ufpa.adtn.util.SDNV;
 
-public class Message<T extends TLV> implements SerializableEntity {
+public class Message<T extends TLV> implements SerializableFixedObject {
 
 	public static interface TLVParser<T extends TLV> {
 		public T parse(ByteBuffer buffer, byte type, byte flags) throws TLVParsingException;
@@ -73,15 +72,10 @@ public class Message<T extends TLV> implements SerializableEntity {
 		
 		int len = SDNV.decodeInt(buffer);
 		len -= SDNV.length(len);
-		len -= 14;
+		len -= 15;
 		
-		if (buffer.remaining() != len) {
-			System.err.println(buffer.remaining());
-			System.err.println(buffer.capacity());
-			System.err.println(buffer.limit());
-			System.err.println(len);
+		if (buffer.remaining() != len)
 			throw new ParsingException("Buffer offset problem");
-		}
 		
 		final Message<T> msg = new Message<T>(
 				protocol,
@@ -131,6 +125,8 @@ public class Message<T extends TLV> implements SerializableEntity {
 	private final short receiver;
 	private final short sender;
 	
+	private int length;
+	
 	private Message(
 			byte protocolNumber,
 			byte version,
@@ -163,6 +159,9 @@ public class Message<T extends TLV> implements SerializableEntity {
 		this.sender = sender;
 		this.flags = flags;
 		this.code = code;
+		
+		// Fixed length fields
+		this.length = 15;
 	}
 	
 	public short getReceiver() {
@@ -198,10 +197,11 @@ public class Message<T extends TLV> implements SerializableEntity {
 			throw new IllegalArgumentException("TLV can not be null");
 		
 		synchronized (tlvList) {
+			length += tlv.getLength();
 			tlvList.add(tlv);
 		}
 	}
-	
+
 	public Collection<T> getTLVs() {
 		return Collections.unmodifiableCollection(tlvList);
 	}
@@ -220,15 +220,9 @@ public class Message<T extends TLV> implements SerializableEntity {
 		
 		synchronized (tlvList) {
 			//Fixed-length fields
-			int tlen = 14;
-			
-			//TLVs in this Message
-			for (TLV tlv : tlvList)
-				tlen += tlv.getLength();
-			
+			int tlen = length;
 			int llen = SDNV.length(tlen);
-			tlen += llen;
-			if (SDNV.length(tlen + llen) != llen)
+			if (SDNV.length(tlen += llen) != llen)
 				tlen++;
 			
 			SDNV.encodeInt(buffer, tlen);
@@ -240,14 +234,27 @@ public class Message<T extends TLV> implements SerializableEntity {
 			int spos = buffer.position();
 			for (TLV tlv : tlvList) {
 				final int len = tlv.getLength();
-				Logger.e("TLV-Size", "In Message: " + tlv.getLength());
+
+				buffer.position(spos);
 				buffer.limit(spos + len);
 				tlv.serialize(buffer.slice());
 				
 				spos += len;
 			}
 			
+			buffer.position(spos);
 			buffer.limit(spos);
 		}
+	}
+
+	@Override
+	public int getLength() {
+		int tlen = length;
+		int llen = SDNV.length(tlen);
+		tlen += llen;
+		if (SDNV.length(tlen + llen) != llen)
+			tlen++;
+		
+		return length;
 	}
 }

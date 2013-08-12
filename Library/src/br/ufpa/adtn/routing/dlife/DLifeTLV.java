@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import br.ufpa.adtn.core.EID;
-import br.ufpa.adtn.core.SerializableEntity;
+import br.ufpa.adtn.core.SerializableObject;
 import br.ufpa.adtn.routing.Message.TLVParser;
 import br.ufpa.adtn.routing.TLV;
 import br.ufpa.adtn.routing.TLVParsingException;
@@ -119,15 +119,15 @@ public abstract class DLifeTLV extends TLV {
 			return tlen;
 		}
 		
-		protected EID getEID() {
+		public EID getEID() {
 			return eid;
 		}
 		
-		protected int getStorage() {
+		public int getStorage() {
 			return storage;
 		}
 		
-		protected int getTimer() {
+		public int getTimer() {
 			return timer;
 		}
 	}
@@ -191,7 +191,7 @@ public abstract class DLifeTLV extends TLV {
 	
 	
 	public static final class Social extends DLifeTLV {
-		private static class WeightEntry implements SerializableEntity {
+		private static class WeightEntry implements SerializableObject {
 			private final float weight;
 			private final int sid;
 			
@@ -207,7 +207,7 @@ public abstract class DLifeTLV extends TLV {
 			}
 		}
 		
-		private static class BundleEntry implements SerializableEntity {
+		private static class BundleEntry implements SerializableObject {
 			private final int bid;
 			private final int sid;
 			

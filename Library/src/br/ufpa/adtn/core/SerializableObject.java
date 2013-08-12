@@ -15,23 +15,11 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package br.ufpa.adtn.bundle;
+package br.ufpa.adtn.core;
 
-@SuppressWarnings("unused")
-public class NewBundle {
-	private final BundleInfo info;
-	private BundlePayload payload;
-	private Long identifier;
+import java.nio.ByteBuffer;
+
+public interface SerializableObject {
 	
-	public NewBundle(BundleInfo info) {
-		this(info, null);
-	}
-	
-	public NewBundle(BundleInfo info, BundlePayload payload) {
-		if (payload == null) {
-			
-		}
-		
-		this.info = info;
-	}
+	public void serialize(ByteBuffer buffer);
 }

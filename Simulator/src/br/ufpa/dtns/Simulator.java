@@ -22,50 +22,29 @@ import java.io.FileOutputStream;
 
 import br.ufpa.dtns.util.PrintStreamHooker;
 
-public class Simulator {	
+public class Simulator {
+	private static final String ROUTER = "dlife";
 	
 	private static void setup() throws Exception {
 		System.setErr(new PrintStreamHooker(
 				System.err,
-				new BufferedOutputStream(new FileOutputStream("logs/general.log"))
+				new BufferedOutputStream(new FileOutputStream(String.format(
+						"logs/general.%s.log",
+						ROUTER
+				)))
 		));
-		
-		DeviceLoader.init(10000);
+
+		DeviceLoader.init(10000 + ROUTER.hashCode() % 100);
 	}
 
 	
 	public static void main(String[] args) throws Exception {
 		setup();
 		
-//		final LocalDevice d1 = DeviceLoader.create("langbeck.node");
-//		final LocalDevice d2 = DeviceLoader.create("dorian.node");
-//		
-//		d1.init("config.dlife.xml", "contact.conf");
-//		d2.init("config.dlife.xml", "contact.conf");
-//
-//		d1.discovery(d2);
-//		d2.discovery(d1);
-//		Thread.sleep(20);
-//		
-//		d1.discovery(d2);
-//		d2.discovery(d1);
-//		Thread.sleep(20);
-//		
-//		d1.discovery(d2);
-//		d2.discovery(d1);
-//		Thread.sleep(20);
-//		
-//		d1.discovery(d2);
-//		d2.discovery(d1);
-//		Thread.sleep(20);
-//		
-//		d1.discovery(d2);
-//		d2.discovery(d1);
-//		Thread.sleep(20);
-		
-		Container.create("prophet", "config.prophet.xml", "contact.conf");
-//		Container container = Container.create("dlife", "config.dlife.xml", "contact.conf");
-//		System.err.println(container.getFirstEvent());
-//		System.err.println(container.getLastEvent());
+		Container.create(
+				ROUTER,
+				String.format("config.%s.xml", ROUTER),
+				"contact.lite.conf"
+		);
 	}
 }

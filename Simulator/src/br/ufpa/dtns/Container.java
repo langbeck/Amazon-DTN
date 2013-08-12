@@ -15,6 +15,7 @@ import br.ufpa.adtn.core.ParsingException;
 import br.ufpa.adtn.core.configuration.SimulationConfiguration;
 import br.ufpa.adtn.core.configuration.SimulationConfiguration.ContactInfo;
 import br.ufpa.adtn.core.configuration.SimulationConfiguration.DeviceInfo;
+import br.ufpa.adtn.util.Logger;
 import br.ufpa.dtns.DeviceLoader.LocalDevice;
 
 public class Container {
@@ -75,6 +76,14 @@ public class Container {
 			}
 		}
 		
+		timer.schedule(new TimerTask() {
+			
+			@Override
+			public void run() {
+				Logger.w("Container", "Simulation finished");
+				timer.cancel();
+			}
+		}, last_event);
 		this.first_event = first_event;
 		this.last_event = last_event;
 	}

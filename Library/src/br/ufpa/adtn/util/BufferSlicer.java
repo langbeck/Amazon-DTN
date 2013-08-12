@@ -15,11 +15,44 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package br.ufpa.adtn.core;
+package br.ufpa.adtn.util;
 
 import java.nio.ByteBuffer;
 
-public interface SerializableEntity {
+public class BufferSlicer {
+	private ByteBuffer data;
+	private int start;
 	
-	public void serialize(ByteBuffer buffer);
+	public BufferSlicer(ByteBuffer data) {
+		this.start = data.position();
+		this.data = data;
+	}
+	
+	public BufferSlicer() {
+		this.data = null;
+		this.start = 0;
+	}
+	
+	public void begin(ByteBuffer data) {
+		this.start = data.position();
+		this.data = data;
+	}
+	
+	public ByteBuffer end() {
+		if (data == null)
+			throw new NullPointerException("Not initialized");
+		
+		final int position = data.position();
+		final ByteBuffer copy = data.duplicate();
+		copy.limit(position);
+		copy.position(start);
+		start = position;
+		
+		return copy.slice();
+	}
+	
+	public void clear() {
+		data = null;
+		start = 0;
+	}
 }

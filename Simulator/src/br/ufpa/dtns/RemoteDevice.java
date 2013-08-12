@@ -27,11 +27,14 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.concurrent.TimeUnit;
 
 import br.ufpa.adtn.bundle.Bundle;
 import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.EID;
+import br.ufpa.adtn.core.InformationHub.InfoLogger;
 import br.ufpa.adtn.core.configuration.SimulationConfiguration;
+import br.ufpa.adtn.util.BundleGenerator;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.Logger.LogHandler;
 import br.ufpa.adtn.util.Logger.Priority;
@@ -87,9 +90,11 @@ public class RemoteDevice implements DeviceConnector, Serializable {
 
 		try {
 			BPAgent.init(new SimulationConfiguration(new FileReader(simulation)));
+			BPAgent.registerPeriodicEvent(new BundleGenerator(102400, 30, TimeUnit.MINUTES));
+			BPAgent.registerPeriodicEvent(new InfoLogger(5, TimeUnit.MINUTES));
 			BPAgent.load(new FileInputStream(config));
 		} catch (Exception e) {
-			throw new RemoteException("Load configurations failure", e);
+			throw new RemoteException("BPAgent startup failure", e);
 		}
 
 		BPAgent.setHostname(eid);

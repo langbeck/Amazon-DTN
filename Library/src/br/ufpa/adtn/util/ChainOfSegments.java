@@ -17,8 +17,40 @@
  */
 package br.ufpa.adtn.util;
 
-public interface CompressedStreamConstants {
-	public short MAGIC = (short) 0x7A13;
-	public short CLOSE = (short) 0xDEAD;
-	public short NEXT = (short) 0xA7B3;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Collection;
+
+public class ChainOfSegments {
+private final Collection<ByteBuffer> segments;
+	
+	public ChainOfSegments() {
+		this.segments = new ArrayList<ByteBuffer>();
+	}
+	
+	public void append(byte[] data, int off, int len) {
+		segments.add(ByteBuffer.wrap(data, off, len));
+	}
+	
+	public void append(byte[] data) {
+		segments.add(ByteBuffer.wrap(data));
+	}
+	
+	public void append(ByteBuffer data) {
+		segments.add(data.duplicate());
+	}
+	
+	public boolean isEmpty() {
+		return segments.isEmpty();
+	}
+	
+	public int length() {
+		return segments.size();
+	}
+	
+	public ByteBuffer[] getSegments() {
+		final ByteBuffer[] data = new ByteBuffer[segments.size()];
+		segments.toArray(data);
+		return data;
+	}
 }

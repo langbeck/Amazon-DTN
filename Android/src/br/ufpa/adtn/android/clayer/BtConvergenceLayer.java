@@ -171,8 +171,6 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 					final Bundle b = outputBundles.take();
 					oos.writeUnshared(b);
 					oos.flush();
-					
-					InformationHub.BUNDLE.onSent();
 				}
 			} catch (InterruptedException e) {
 				LOGGER.w("Output Interrupted");
@@ -198,8 +196,6 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 					final Object bundle;
 					try {
 						bundle = ois.readUnshared();
-						
-						InformationHub.BUNDLE.onReceived();
 					} catch (IOException e) {
 						LOGGER.w("Connection failure");
 						break;

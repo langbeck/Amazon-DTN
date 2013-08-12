@@ -19,11 +19,11 @@ package br.ufpa.adtn.routing;
 
 import java.nio.ByteBuffer;
 
-import br.ufpa.adtn.core.SerializableEntity;
+import br.ufpa.adtn.core.SerializableObject;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.SDNV;
 
-public abstract class TLV implements SerializableEntity {
+public abstract class TLV implements SerializableObject {
 	public static final Logger LOGGER = new Logger("TLV");
 	
 	private final byte type;
@@ -63,8 +63,6 @@ public abstract class TLV implements SerializableEntity {
 		
 		// Define a limit to new sub-buffer created by ByteBuffer.slice()
 		buffer.limit(buffer.position() + getDataLength());
-		
-		Logger.e("TLV-Size", "In TLV: " + buffer.limit());
 		serializeTLV(buffer.slice());
 	}
 	

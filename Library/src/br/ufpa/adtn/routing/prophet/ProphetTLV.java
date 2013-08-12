@@ -18,17 +18,16 @@
 package br.ufpa.adtn.routing.prophet;
 
 import java.nio.ByteBuffer;
-
 import java.util.ArrayList;
 import java.util.List;
 
 import br.ufpa.adtn.core.EID;
-import br.ufpa.adtn.core.SerializableEntity;
+import br.ufpa.adtn.core.SerializableObject;
 import br.ufpa.adtn.routing.Message.TLVParser;
-import br.ufpa.adtn.routing.prophet.ProphetUtil.BundleSpec;
-import br.ufpa.adtn.routing.prophet.ProphetDataRouting.NeighborPredict;
 import br.ufpa.adtn.routing.TLV;
 import br.ufpa.adtn.routing.TLVParsingException;
+import br.ufpa.adtn.routing.prophet.ProphetDataRouting.NeighborPredict;
+import br.ufpa.adtn.routing.prophet.ProphetUtil.BundleSpec;
 import br.ufpa.adtn.util.SDNV;
 
 /**
@@ -180,7 +179,7 @@ public abstract class ProphetTLV extends TLV {
 	}
 	
 	public static final class RoutingInformation extends ProphetTLV {
-		private static class PredictEntry implements SerializableEntity {
+		private static class PredictEntry implements SerializableObject {
 			private final float predict;
 			private final int sid;
 			
@@ -287,7 +286,7 @@ public abstract class ProphetTLV extends TLV {
 	}
 	
 	public static final class BundleOffer extends ProphetTLV {
-		private static class BundleEntry implements SerializableEntity {
+		private static class BundleEntry implements SerializableObject {
 			private final byte b_flag;
 			private final int src;
 			private final int dest;
@@ -405,7 +404,7 @@ public abstract class ProphetTLV extends TLV {
 	
 	public static final class BundleResponse extends ProphetTLV {
 		
-		private static class BundleEntry implements SerializableEntity {
+		private static class BundleEntry implements SerializableObject {
 			private final byte b_flag;
 			private final int src;
 			private final int dest;

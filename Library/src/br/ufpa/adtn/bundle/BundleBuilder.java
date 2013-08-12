@@ -20,40 +20,25 @@ package br.ufpa.adtn.bundle;
 import java.nio.ByteBuffer;
 
 import br.ufpa.adtn.core.EID;
+import br.ufpa.adtn.util.DataBlock;
 
 @SuppressWarnings("unused")
 public class BundleBuilder {
-	public static final long DEFAULT_LIFETIME = 3600;
-	
 	private EID destination;
-	private EID custodian;
-	private EID reportTo;
 	private EID source;
 	
 	private ByteBuffer payload;
 	private long lifetime;
 	
 	public BundleBuilder() {
-		this.lifetime = DEFAULT_LIFETIME;
 		this.destination = EID.NULL;
-		this.custodian = EID.NULL;
-		this.reportTo = EID.NULL;
 		this.source = EID.NULL;
 		this.payload = null;
+		this.lifetime = -1;
 	}
 
 	public BundleBuilder setDestination(EID destination) {
 		this.destination = destination;
-		return this;
-	}
-
-	public BundleBuilder setCustodian(EID custodian) {
-		this.custodian = custodian;
-		return this;
-	}
-
-	public BundleBuilder setReportTo(EID reportTo) {
-		this.reportTo = reportTo;
 		return this;
 	}
 
@@ -73,6 +58,13 @@ public class BundleBuilder {
 	}
 
 	public Bundle build() {
-		return new Bundle(source, destination, payload);
+		return new Bundle(
+				BundleInfo.create(
+						destination,
+						source,
+						payload.limit()
+				),
+				DataBlock.wrap(payload)
+		);
 	}
 }

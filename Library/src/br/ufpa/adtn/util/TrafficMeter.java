@@ -1,3 +1,20 @@
+/**
+ * Amazon-DTN - Lightweight Delay Tolerant Networking Implementation
+ * Copyright (C) 2013  Dórian C. Langbeck
+ * 
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
 package br.ufpa.adtn.util;
 
 import java.io.FilterInputStream;
@@ -52,14 +69,14 @@ public final class TrafficMeter {
 		
 		@Override
 		public int read(byte[] b, int off, int len) throws IOException {
-			final int readed = super.read(b, off, len);
+			final int readed = in.read(b, off, len);
 			incReceived(readed);
 			return readed;
 		}
 
 		@Override
 		public int read() throws IOException {
-			final int i = super.read();
+			final int i = in.read();
 			incReceived(1);
 			return i;
 		}
@@ -70,18 +87,17 @@ public final class TrafficMeter {
 		
 		private OStream(OutputStream out) {
 			super(out);
-			this.out = out;
 		}
 		
 		@Override
 		public void write(byte[] b, int off, int len) throws IOException {
-			super.write(b, off, len);
+			out.write(b, off, len);
 			incSent(len);
 		}
 
 		@Override
 		public void write(int b) throws IOException {
-			super.write(b);
+			out.write(b);
 			incSent(1);
 		}
 	}

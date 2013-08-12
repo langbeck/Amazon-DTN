@@ -15,8 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-package br.ufpa.adtn.bundle;
+package br.ufpa.adtn.core;
 
-public class BundlePayload {
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
+import br.ufpa.adtn.util.ChainOfSegments;
+
+public interface SerializableSegmentedObject {
 	
+	public void serialize(ChainOfSegments chain, ByteBuffer buffer) throws IOException;
 }

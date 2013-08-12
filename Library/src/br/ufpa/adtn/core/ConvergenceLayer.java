@@ -333,8 +333,9 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		
 		@Override
 		public void send(Bundle bundle) {
+			// FIXME That is not the right place for trace it
 			// TODO Remove it
-			InformationHub.BUNDLE.onSent();
+			InformationHub.BUNDLE.onSent(bundle);
 		}
 		
 		@Override
@@ -554,7 +555,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 			}
 			
 			// TODO Remove it
-			InformationHub.BUNDLE.onReceived();
+			InformationHub.BUNDLE.onReceived(bundle);
 			
 			adapter.connector.notifyBundleReceived(this, bundle);
 		}

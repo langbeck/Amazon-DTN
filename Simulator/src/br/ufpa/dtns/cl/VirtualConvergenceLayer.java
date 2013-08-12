@@ -19,14 +19,15 @@ package br.ufpa.dtns.cl;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketAddress;
+import java.nio.ByteBuffer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -34,12 +35,17 @@ import br.ufpa.adtn.bundle.Bundle;
 import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.ConvergenceLayer;
 import br.ufpa.adtn.core.EID;
+import br.ufpa.adtn.util.ChainOfSegments;
+import br.ufpa.adtn.util.DataBlock;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.Properties;
 import br.ufpa.dtns.cl.VirtualConvergenceLayer.VirtualAdapter;
 import br.ufpa.dtns.cl.VirtualConvergenceLayer.VirtualConnection;
 
 public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, VirtualConnection> {
+	private static final short BUNDLE_HEADER = (short) 0x8A2D;
+	private static final short MAGIC_HEADER = (short) 0x4E10;
+	
 	private static final Logger LOGGER = new Logger("VirtualCL");
 	private static VirtualAdapter ADAPTER = null;
 	
@@ -157,21 +163,32 @@ public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, Vi
 		@Override
 		public void send(Bundle bundle) {
 			outputBundles.offer(bundle);
+			super.send(bundle);
 		}
 
 		@Override
 		protected void processOutput(OutputStream out) throws IOException {
 			try {
-				final ObjectOutputStream oos = new ObjectOutputStream(out);
+				final DataOutputStream dos = new DataOutputStream(out);
+				dos.writeShort(MAGIC_HEADER);
 				
 				//FIXME Each ConvergenceLayer must have your own EID (if needed)
-				oos.writeUTF(BPAgent.getHostEID().toString());
-				oos.flush();
+				dos.writeUTF(BPAgent.getHostEID().toString());
+				dos.flush();
 				
 				while (!Thread.interrupted()) {
-					final Bundle b = outputBundles.take();
-					oos.writeUnshared(b);
-					oos.flush();
+					// Buffer allocation need get smarter
+					final ByteBuffer buffer = ByteBuffer.allocate(0x10000);
+					final ChainOfSegments chain = new ChainOfSegments();
+					
+					outputBundles.take().serialize(chain, buffer);
+					final DataBlock block = DataBlock.join(chain.getSegments());
+					final int bLength = block.getLength();
+					
+					dos.writeShort(BUNDLE_HEADER);
+					dos.writeInt(bLength);
+					block.copy(dos);
+					dos.flush();
 				}
 			} catch (InterruptedException e) {
 				LOGGER.w("Output Interrupted");
@@ -184,30 +201,28 @@ public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, Vi
 
 		@Override
 		protected void processInput(InputStream in) throws IOException {
-			final ObjectInputStream ois = new ObjectInputStream(in);
-			final EID remote_eid = EID.get(ois.readUTF());
+			final DataInputStream dis = new DataInputStream(in);
+			if (dis.readShort() != MAGIC_HEADER)
+				throw new IOException("Wrong magic");
+			
+			final EID remote_eid = EID.get(dis.readUTF());
 			if (!isRegistered())
 				register(remote_eid);
 			
 			try {
 				while (isConnected()) {
-					final Object bundle;
+					if (dis.readShort() != BUNDLE_HEADER)
+						throw new IOException("Wrong header");
+					
 					try {
-						bundle = ois.readUnshared();
+						final byte[] data = new byte[dis.readInt()];
+						for (int readed = 0, pos = 0; (readed = dis.read(data, pos, data.length - pos)) != -1 && readed < data.length; pos += readed);
+						bundleReceived(new Bundle(ByteBuffer.wrap(data)));
 					} catch (IOException e) {
 						LOGGER.w("Connection failure");
 						break;
 					}
-					
-					if (!(bundle instanceof Bundle)) {
-						LOGGER.w("Non Bundle received. Ignoring this object.");
-						continue;
-					}
-					
-					bundleReceived((Bundle) bundle);
 				}
-			} catch (ClassNotFoundException e) {
-				LOGGER.e("Input processing failure", e);
 			} finally {
 				LOGGER.d("EXITING(processInput)");
 			}

@@ -17,6 +17,7 @@
  */
 package br.ufpa.adtn.routing;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import br.ufpa.adtn.bundle.Bundle;
@@ -46,10 +47,14 @@ public abstract class MessageLinkConnection<MLC extends MessageLinkConnection<ML
 	@Override
 	protected void onBundleReceived(Bundle bundle) throws ParsingException {
 		LOGGER.v("Bundle received");
-		provider.delivery(Message.unpack(
-				bundle.getPayload(),
-				parser
-		));
+		try {
+			provider.delivery(Message.unpack(
+					bundle.getPayload().read(),
+					parser
+			));
+		} catch (IOException e) {
+			throw new ParsingException(e);
+		}
 	}
 	
 	@Override
@@ -58,6 +63,8 @@ public abstract class MessageLinkConnection<MLC extends MessageLinkConnection<ML
 		
 		final ByteBuffer buffer = ByteBuffer.allocate(0x10000);
 		message.serialize(buffer);
+		buffer.flip();
+		
 		send(new BundleBuilder()
 			.setDestination(getRegistrationEndpointID())
 			.setSource(getLocalEndpointID())

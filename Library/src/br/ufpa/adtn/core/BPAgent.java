@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
@@ -43,9 +44,11 @@ import br.ufpa.adtn.core.registration.Registry;
 import br.ufpa.adtn.util.BundleOutbox;
 import br.ufpa.adtn.util.EventQueue;
 import br.ufpa.adtn.util.Logger;
+import br.ufpa.adtn.util.PeriodicEvent;
 import br.ufpa.adtn.util.Properties;
 
 public final class BPAgent {
+	public static final byte VERSION = 0x06;
 	
 	public static enum State {
 		PARSE_ERROR	, CLEAR			,
@@ -57,15 +60,16 @@ public final class BPAgent {
 	private static final Collection<BundleStorageChangeListener> storageListeners;
 	private static final Registration<String, Bundle> registration;
 	private static final Collection<RouterStub<?, ?>> routers;
+	private static final Collection<PeriodicEvent> events;
 	private static final Collection<IAdapter> adapters;
 	private static final LoadConfiguration config;
-	private static final EventQueue eventQueue;
+	private static final EventQueue eQueue;
 	private static final BundleOutbox bOutbox;
 	private static final Logger LOGGER;
 
 	private static SimulationConfiguration sConfig;
 	private static BundleStorage bStorage;
-	private static boolean simulationMode;
+	private static boolean simulatedMode;
 	private static ClassLoader cLoader;
 	private static State state;
 	
@@ -73,10 +77,11 @@ public final class BPAgent {
 		storageListeners = new ArrayList<BundleStorageChangeListener>();
 		registration = new Registration<String, Bundle>();
 		routers = new ArrayList<RouterStub<?, ?>>();
+		events = new HashSet<PeriodicEvent>();
 		adapters = new ArrayList<IAdapter>();
 		config = new LoadConfiguration();
 		LOGGER = new Logger("BPAgent");
-		eventQueue = new EventQueue();
+		eQueue = new EventQueue();
 		bOutbox = new BundleOutbox();
 		state = State.CLEAR;
 		bStorage = null;
@@ -121,6 +126,20 @@ public final class BPAgent {
 		return state;
 	}
 	
+	public synchronized static void registerPeriodicEvent(PeriodicEvent event) {
+		if (state.ordinal() >= State.STARTING.ordinal())
+			throw new IllegalStateException("BPAgent was already started");
+		
+		if (!isSimulated())
+			throw new IllegalStateException("BPAgent need be in simulated mode");
+		
+		if (event.isBinded())
+			throw new IllegalArgumentException("Event already binded");
+
+		event.bind(eQueue);
+		events.add(event);
+	}
+	
 	public synchronized static void init(SimulationConfiguration sConfig) {
 		checkStateAndChange(State.CLEAR, State.INITIALIZING);
 		final boolean simulation = (sConfig != null);
@@ -128,10 +147,10 @@ public final class BPAgent {
 		
 		if (simulation) {
 			LOGGER.i("Starting in SIMULATED mode.");
-			simulationMode = true;
+			simulatedMode = true;
 		} else {
 			LOGGER.i("Starting in NORMAL mode.");
-			simulationMode = false;
+			simulatedMode = false;
 		}
 		
 		checkStateAndChange(State.INITIALIZING, State.INITIALIZED);
@@ -154,19 +173,19 @@ public final class BPAgent {
 		if (state.ordinal() < State.INITIALIZED.ordinal())
 			throw new IllegalStateException("BPAgent need get initialized first.");
 		
-		return simulationMode;
+		return simulatedMode;
 	}
 	
 	public static boolean isNormal() {
 		if (state.ordinal() < State.INITIALIZED.ordinal())
 			throw new IllegalStateException("BPAgent need get initialized first.");
 		
-		return !simulationMode;
+		return !simulatedMode;
 	}
 	
 	static void checkConnectorSyncAndState() throws IllegalAccessError {
 		checkState(State.LOADING, "BPAgent is not in loading state");
-		eventQueue.checkSync();
+		eQueue.checkSync();
 	}
 	
 	public static void setHostname(String hostname) {
@@ -274,7 +293,7 @@ public final class BPAgent {
 			final Object data
 	) {
 		try {
-			return eventQueue.submit(new Callable<IAdapter>() {
+			return eQueue.submit(new Callable<IAdapter>() {
 				@Override
 				public IAdapter call() throws Exception {
 					return cLayer.createAdapter(config, data);
@@ -298,7 +317,7 @@ public final class BPAgent {
 			/*
 			 * Create the new instance inside the EventQueue of BPAgent
 			 */
-			return eventQueue.submit(new Callable<T>() {
+			return eQueue.submit(new Callable<T>() {
 				@Override
 				public T call() throws Exception {
 					return cl.newInstance();
@@ -328,7 +347,7 @@ public final class BPAgent {
 	public synchronized static void start() {
 		checkStateAndChange(State.LOADED, State.STARTING);
 		
-		if (simulationMode) {
+		if (simulatedMode) {
 			LOGGER.i(String.format(
 					"Starting at %s in SIMULATED time",
 					sConfig.getStart()
@@ -363,6 +382,9 @@ public final class BPAgent {
 		LOGGER.i("Starting BPA registered routers");
 		for (RouterStub<?, ?> stub : routers)
 			stub.init();
+		
+		for (PeriodicEvent event : events)
+			event.start();
 		
 		checkStateAndChange(State.STARTING, State.STARTED);
 	}
@@ -452,7 +474,7 @@ public final class BPAgent {
 
 		synchronized (storageListeners) {
 			for (BundleStorageChangeListener listener : storageListeners)
-				listener.notifyBundleAdded(eventQueue, bundle);
+				listener.notifyBundleAdded(eQueue, bundle);
 		}
 	}
 

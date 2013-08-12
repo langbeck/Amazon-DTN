@@ -17,7 +17,6 @@
  */
 package br.ufpa.adtn.routing.prophet;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 

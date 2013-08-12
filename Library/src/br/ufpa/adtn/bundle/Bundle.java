@@ -17,57 +17,80 @@
  */
 package br.ufpa.adtn.bundle;
 
-import java.io.Serializable;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import br.ufpa.adtn.core.EID;
-import br.ufpa.adtn.core.SerializableEntity;
+import br.ufpa.adtn.core.SerializableSegmentedObject;
+import br.ufpa.adtn.util.BufferSlicer;
+import br.ufpa.adtn.util.ChainOfSegments;
+import br.ufpa.adtn.util.DataBlock;
+import br.ufpa.adtn.util.SDNV;
 
-public class Bundle implements SerializableEntity, Serializable {
-	private static final long serialVersionUID = 1422146061796800329L;
-	private final EID destination;
-	private final EID source;
+public final class Bundle implements SerializableSegmentedObject {
+	private final DataBlock payload;
+	private final BundleInfo info;
 	
-	private final byte[] data;
-	
-	public Bundle(EID source, EID destination, ByteBuffer data) {
-		this.destination = destination;
-		this.source = source;
+	public Bundle(ByteBuffer buffer) {
+		this.info = BundleInfo.parse(buffer);
 		
-		this.data = new byte[data.rewind().limit()];
-		data.get(this.data);
-		data.rewind();
+		if (buffer.get() != (byte) 1)
+			throw new RuntimeException("Wrong block type");
+		
+		if (buffer.get() != (byte) 0x08)
+			throw new RuntimeException("Wrong block flags");
+		
+		byte[] data = new byte[SDNV.decodeInt(buffer)];
+		buffer.get(data);
+		
+		this.payload = DataBlock.wrap(data);
 	}
 	
+	public Bundle(BundleInfo info, DataBlock payload) {
+		if (payload == null)
+			throw new NullPointerException();
+		
+		if (info.getDataLength() != payload.getLength())
+			throw new IllegalArgumentException("Sizes doesn't match");
+		
+		this.payload = payload;
+		this.info = info;
+	}
+	
+	/**
+	 * Equivalent to: {@code getInfo().getDestination()}
+	 */
 	public EID getDestination() {
-		return destination;
+		return info.getDestination();
 	}
 	
+	/**
+	 * Equivalent to: {@code getInfo().getSource()}
+	 */
 	public EID getSource() {
-		return source;
-	}
-
-	public ByteBuffer getPayload() {
-		/*
-		 * TODO Each time getPayload() is invoked a independent ByteBuffer must
-		 * be returned.
-		 */
-		return ByteBuffer.wrap(data).asReadOnlyBuffer();
+		return info.getSource();
 	}
 	
-	@Override
-	public int hashCode() {
-		//TODO Implement the real hashCode method
-		return super.hashCode();
+	public DataBlock getPayload() {
+		return payload;
+	}
+	
+	public BundleInfo getInfo() {
+		return info;
 	}
 
 	@Override
-	public void serialize(ByteBuffer buffer) {
-		//TODO Implement
-		throw new UnsupportedOperationException("Not implemented");
-	}
-	
-	public int length() {
-		return 0;
+	public void serialize(ChainOfSegments chain, ByteBuffer buffer) throws IOException {
+		final ByteBuffer pBuffer = payload.read();
+		
+		info.serialize(chain, buffer);
+		
+		final BufferSlicer slicer = new BufferSlicer(buffer);
+		buffer.put((byte) 0x01);
+		buffer.put((byte) 0x08);
+		SDNV.encodeInt(buffer, payload.getLength());
+		chain.append(slicer.end());
+		
+		chain.append(pBuffer);
 	}
 }
