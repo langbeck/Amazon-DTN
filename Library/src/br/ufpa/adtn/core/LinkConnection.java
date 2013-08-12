@@ -18,6 +18,7 @@
 package br.ufpa.adtn.core;
 
 import br.ufpa.adtn.bundle.Bundle;
+import br.ufpa.adtn.core.InformationHub.BundleHub;
 import br.ufpa.adtn.util.EventQueue;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.EventQueue.Event;
@@ -46,6 +47,8 @@ public abstract class LinkConnection<LC extends LinkConnection<LC, R>, R extends
 		this.link = link;
 		
 		this.ready = true;
+		
+		LOGGER.i("Binded to " + link.getEndpointID());
 	}
 	
 	public final void unpark() {
@@ -124,22 +127,23 @@ public abstract class LinkConnection<LC extends LinkConnection<LC, R>, R extends
 				eid.getSSP()
 		);
 	}
-	
+
 	public EID getEndpointID() {
 		return link.getEndpointID();
 	}
-	
+
 	public Link getLink() {
 		return link;
 	}
-	
+
 	protected final void send(Bundle bundle) {
 		checkState();
-		
+
 		if (!eventQueue.isOnInternalThread())
 			throw new IllegalAccessError("Send bundle request must be requested by Router event queue Thread");
-		
+
 		LOGGER.v("Sending bundle");
+		BundleHub bHub = InformationHub.DATA_BUNDLE;
 		link.send(bundle);
 	}
 	

@@ -92,7 +92,7 @@ public class InformationHub {
 			));
 			
 			payloadReceived += bundle.getPayload().getLength();
-			dataReceived += bundle.getLength();
+			dataReceived += bundle.getDataLength();
 			received++;
 		}
 		
@@ -103,7 +103,7 @@ public class InformationHub {
 			));
 			
 			payloadSent += bundle.getPayload().getLength();
-			dataSent += bundle.getLength();
+			dataSent += bundle.getDataLength();
 			sent++;
 		}
 	}

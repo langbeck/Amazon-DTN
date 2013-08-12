@@ -62,9 +62,9 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	public static BundleInfo create(EID destination, EID source) {
 		return create(
 				destination,
+				source,
 				EID.NULL,
-				EID.NULL,
-				source
+				EID.NULL
 		);
 	}
 	

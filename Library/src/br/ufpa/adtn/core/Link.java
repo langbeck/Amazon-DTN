@@ -412,6 +412,8 @@ public final class Link {
 		final IConnection conn = getConnectionToSend();
 		if (conn != null)
 			conn.send(bundle);
+		
+		// FIXME Do something when does not exists a connection
 	}
 
 	

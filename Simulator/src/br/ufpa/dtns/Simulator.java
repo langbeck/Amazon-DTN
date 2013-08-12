@@ -37,10 +37,10 @@ public class Simulator {
 		DeviceLoader.init(10000 + ROUTER.hashCode() % 100);
 	}
 
-	
+
 	public static void main(String[] args) throws Exception {
 		setup();
-		
+
 		Container.create(
 				ROUTER,
 				String.format("config.%s.xml", ROUTER),

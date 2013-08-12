@@ -84,8 +84,12 @@ public final class Bundle implements SerializableSegmentedObject {
 	public long getUniqueID() {
 		return info.getUniqueID();
 	}
+	
+	public int getPayloadLength() {
+		return payload.getLength();
+	}
 
-	public int getLength() {
+	public int getDataLength() {
 		final int plen = payload.getLength();
 		return	info.getBlockLength() +
 				SDNV.length(plen) +
