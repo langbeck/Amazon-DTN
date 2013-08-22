@@ -158,16 +158,18 @@ public class InformationHub {
 		public void onTransferred(Bundle bundle, EID next, boolean isFinal) {
 			if (isFinal) {
 				LOGGER.i(String.format(
-						"(%s) Delivered: [ ID: %016x ; To: %s ]",
+						"(%s) %s - Delivered: [ ID: %016x ; To: %s ]",
 						new Date(SystemClock.millis()),
+						hubname,
 						bundle.getUniqueID(),
 						next
 				));
 				delivered++;
 			} else {
 				LOGGER.i(String.format(
-						"(%s) Relayed: [ ID: %016x ; To: %s ]",
+						"(%s) %s - Relayed: [ ID: %016x ; To: %s ]",
 						new Date(SystemClock.millis()),
+						hubname,
 						bundle.getUniqueID(),
 						next
 				));
@@ -182,8 +184,9 @@ public class InformationHub {
 		
 		public void onTransferStarted(Bundle bundle, EID next) {
 			LOGGER.i(String.format(
-					"(%s) TransferStarted: [ ID: %016x ; To: %s ]",
+					"(%s) %s - TransferStarted: [ ID: %016x ; To: %s ]",
 					new Date(SystemClock.millis()),
+					hubname,
 					bundle.getUniqueID(),
 					next
 			));
@@ -191,8 +194,9 @@ public class InformationHub {
 		
 		public void onTransferAborted(Bundle bundle, EID next) {
 			LOGGER.i(String.format(
-					"(%s) TransferAborted: [ ID: %016x ; To: %s ]",
+					"(%s) %s - TransferAborted: [ ID: %016x ; To: %s ]",
 					new Date(SystemClock.millis()),
+					hubname,
 					bundle.getUniqueID(),
 					next
 			));
@@ -201,8 +205,9 @@ public class InformationHub {
 		public void onReceived(Bundle bundle, EID prev) {
 			final long uniqueID = bundle.getUniqueID();
 			LOGGER.i(String.format(
-					"(%s) Received: [ ID: %016x ; From: %s ]",
+					"(%s) %s - Received: [ ID: %016x ; From: %s ]",
 					new Date(SystemClock.millis()),
+					hubname,
 					uniqueID,
 					prev
 			));
@@ -224,8 +229,9 @@ public class InformationHub {
 		public void onCreation(Bundle bundle) {
 			final long uniqueID = bundle.getUniqueID();
 			LOGGER.i(String.format(
-					"(%s) Created: [ ID: %016x ; Destination: %s ]",
+					"(%s) %s - Created: [ ID: %016x ; Destination: %s ]",
 					new Date(SystemClock.millis()),
+					hubname,
 					uniqueID,
 					bundle.getDestination()
 			));
@@ -238,16 +244,18 @@ public class InformationHub {
 			
 			if (dropped) {
 				LOGGER.i(String.format(
-						"(%s) Dropped: [ ID: %016x ]",
+						"(%s) %s - Dropped: [ ID: %016x ]",
 						new Date(SystemClock.millis()),
+						hubname,
 						uniqueID,
 						bundle.getDestination()
 				));
 			} else {
 				final Long t = receivedTime.remove(uniqueID);
 				LOGGER.i(String.format(
-						"(%s) Deleted: [ ID: %016x ; BufferTime: %s ]",
+						"(%s) %s - Deleted: [ ID: %016x ; BufferTime: %s ]",
 						new Date(SystemClock.millis()),
+						hubname,
 						uniqueID,
 						bundle.getDestination(),
 						(t == null) ? "unknow" : SystemClock.millis() - t

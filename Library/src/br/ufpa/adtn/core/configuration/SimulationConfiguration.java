@@ -37,7 +37,6 @@ import java.util.regex.Pattern;
 
 import br.ufpa.adtn.core.ClockHooker;
 import br.ufpa.adtn.core.ParsingException;
-import br.ufpa.adtn.core.SystemClock;
 import br.ufpa.adtn.util.Logger;
 
 /**
@@ -368,11 +367,11 @@ public class SimulationConfiguration {
     }
     
     private class InternalClockHooker extends ClockHooker {
-		private long sTime;
 		
 		@Override
 		public long getMilliseconds() {
-			return (long) ((System.currentTimeMillis() - sTime) / timescale) + sTime;
+			final long t0 = start.getTime();
+			return (long) ((System.currentTimeMillis() - t0) / timescale) + t0;
 		}
 		
 		@Override

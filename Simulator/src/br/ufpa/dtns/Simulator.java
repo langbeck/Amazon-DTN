@@ -23,7 +23,7 @@ import java.io.FileOutputStream;
 import br.ufpa.dtns.util.PrintStreamHooker;
 
 public class Simulator {
-	private static final String ROUTER = "prophet";
+	private static final String ROUTER = "dlife";
 
 	private static void setup() throws Exception {
 		System.setErr(new PrintStreamHooker(

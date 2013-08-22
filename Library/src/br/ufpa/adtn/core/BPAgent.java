@@ -156,8 +156,10 @@ public final class BPAgent {
 		
 		checkStateAndChange(State.INITIALIZING, State.INITIALIZED);
 
-		if (simulation)
+		if (simulation) {
 			SystemClock.setHooker(sConfig.getClockHooker());
+			LOGGER.i("Internal clock: " + SystemClock.date());
+		}
 		
 		registration.put("dtn", new Registry<Bundle>() {
 			

@@ -17,9 +17,15 @@
  */
 package br.ufpa.adtn.core;
 
+import java.util.Date;
+
 
 public final class SystemClock extends ClockHooker {
 	private static ClockHooker HOOKER = new SystemClock();
+	
+	public static Date date() {
+		return new Date(HOOKER.getMilliseconds());
+	}
 
 	public static long millis() {
 		return HOOKER.getMilliseconds();
