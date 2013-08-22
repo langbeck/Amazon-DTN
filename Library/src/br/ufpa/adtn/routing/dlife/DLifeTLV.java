@@ -81,12 +81,12 @@ public abstract class DLifeTLV extends TLV {
 	
 	
 	public static final class Hello extends DLifeTLV {
-		private final int storage;
+		private final long storage;
 		private final int timer;
 		private final int tlen;
 		private final EID eid;
 
-		public Hello(HelloType type, EID eid, int timer, int storage) {
+		public Hello(HelloType type, EID eid, int timer, long storage) {
 			super((byte) 0x01);
 			
 			if (type == null || eid == null)
@@ -111,7 +111,7 @@ public abstract class DLifeTLV extends TLV {
 		protected void serializeTLV(ByteBuffer buffer) {
 			eid.encode(buffer);
 			SDNV.encodeInt(buffer, timer);
-			SDNV.encodeInt(buffer, storage);
+			SDNV.encodeLong(buffer, storage);
 		}
 
 		@Override
@@ -123,7 +123,7 @@ public abstract class DLifeTLV extends TLV {
 			return eid;
 		}
 		
-		public int getStorage() {
+		public long getStorage() {
 			return storage;
 		}
 		

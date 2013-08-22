@@ -293,11 +293,11 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 			this.adapter = adapter;
 			this.connected = true;
 		}
-		
+
 		protected AbstractConnection(TAdapter adapter, EID expected_eid) {
 			if (adapter == null)
 				throw new NullPointerException("Adapter can not be null");
-			
+
 			this.expected_eid = expected_eid;
 			this.adapter = adapter;
 			this.connected = false;
@@ -306,7 +306,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		protected final void register(EID eid) throws IllegalStateException {
 			if (eid == null)
 				throw new IllegalStateException("We get a null endpoint id");
-			
+
 			if (expected_eid != null && eid != expected_eid) {
 				LOGGER.w(String.format(
 						"Expected EID is \"%s\" but EID \"%s\" was informed",
@@ -314,7 +314,7 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 						eid.toString()
 				));
 			}
-			
+
 			synchronized (this) {
 				if (registered)
 					throw new IllegalStateException("ConvergenceLayer already registered");
@@ -332,15 +332,10 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 		}
 		
 		@Override
-		public void send(Bundle bundle) {
-			// FIXME That is not the right place for trace it
-			// TODO Remove it
-			InformationHub.BUNDLE.onSent(bundle);
-		}
-		
-		@Override
 		public final EID getEndpointID() {
-			return registered ? registered_eid : expected_eid;
+			return registered ?
+					registered_eid :
+					expected_eid;
 		}
 		
 		private void initResources() throws IOException {
@@ -548,18 +543,35 @@ public abstract class ConvergenceLayer<TAdapter extends ConvergenceLayer<TAdapte
 			this.input = input;
 		}
 		
-		protected final void bundleReceived(Bundle bundle) {
+		protected final void notifyReceived(Bundle bundle) {
 			if (!registered) {
 				LOGGER.d("Bundle received, but this ConvergenceLayer is not registered. [Ignoring]");
 				return;
 			}
 			
-			// TODO Remove it
-			InformationHub.BUNDLE.onReceived(bundle);
-			
+			InformationHub.onReceived(bundle, getEndpointID());
 			adapter.connector.notifyBundleReceived(this, bundle);
 		}
-		
+
+		protected final void notifyTransferAborted(Bundle bundle) {
+			InformationHub.onTransferAborted(bundle, getEndpointID());
+		}
+
+		protected final void notifyTransferStarted(Bundle bundle) {
+			InformationHub.onTransferStarted(bundle, getEndpointID());
+		}
+
+		protected final void notifyTransferred(Bundle bundle) {
+			final EID eid = getEndpointID();
+			InformationHub.onTransferred(
+					bundle,
+					eid,
+					eid.equals(bundle.getDestination())
+			);
+		}
+
+
+
 		/**
 		 * This method will be invoked in exclusively low-priority Thread to
 		 * handle with data output.

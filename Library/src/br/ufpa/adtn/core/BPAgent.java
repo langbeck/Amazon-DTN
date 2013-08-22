@@ -43,6 +43,7 @@ import br.ufpa.adtn.core.registration.Registration;
 import br.ufpa.adtn.core.registration.Registry;
 import br.ufpa.adtn.util.BundleOutbox;
 import br.ufpa.adtn.util.EventQueue;
+import br.ufpa.adtn.util.EventQueue.Event;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.PeriodicEvent;
 import br.ufpa.adtn.util.Properties;
@@ -113,12 +114,12 @@ public final class BPAgent {
 	}
 	
 	public static void routeUnlink(EID dst, EID next) {
-		LOGGER.v(String.format("Bundle outbox unlink: %s -> dst", dst, next));
+		LOGGER.v(String.format("Bundle outbox unlink: %s -> %s", dst, next));
 		bOutbox.unlink(dst, next);
 	}
 	
 	public static void routeLink(EID dst, EID next) {
-		LOGGER.v(String.format("Bundle outbox link: %s -> dst", dst, next));
+		LOGGER.v(String.format("Bundle outbox link: %s -> %s", dst, next));
 		bOutbox.link(dst, next);
 	}
 	
@@ -156,7 +157,7 @@ public final class BPAgent {
 		checkStateAndChange(State.INITIALIZING, State.INITIALIZED);
 
 		if (simulation)
-			SystemClock.setHooker(new ClockHooker());
+			SystemClock.setHooker(sConfig.getClockHooker());
 		
 		registration.put("dtn", new Registry<Bundle>() {
 			
@@ -241,6 +242,7 @@ public final class BPAgent {
 			try {
 				bStorage = BundleStorage.createStorage(
 						sModel,
+						config.getStorageSize(),
 						null
 				);
 			} catch (Exception e) {
@@ -469,7 +471,21 @@ public final class BPAgent {
 	}
 	
 	public static void addBundle(final Bundle bundle) {
-		bStorage.add(bundle);
+		final long expiration = bundle.getInfo().getSecondsToExpiration();
+		final long uniqueID = bundle.getUniqueID();
+		LOGGER.v(String.format("Bundle add requested for %016x", uniqueID));
+		if (expiration <= 0) {
+			LOGGER.w(String.format("Bundle already expired %016x", uniqueID));
+			return;
+		}
+		
+		eQueue.post(new BundleExpirationEvent(bundle));
+		if (!bStorage.add(bundle)) {
+			LOGGER.w(String.format("Bundle being dropped %016x", uniqueID));
+			InformationHub.onDeleted(bundle, true);
+			return;
+		}
+		
 		bOutbox.add(bundle);
 
 		synchronized (storageListeners) {
@@ -477,10 +493,21 @@ public final class BPAgent {
 				listener.notifyBundleAdded(eQueue, bundle);
 		}
 	}
+	
+	public static void removeBundle(Bundle bundle) {
+		LOGGER.v(String.format("Bundle remove requested %016x", bundle.getUniqueID()));
+		InformationHub.onDeleted(bundle, false);
+		bStorage.remove(bundle);
+		bOutbox.remove(bundle);
+		
+		synchronized (storageListeners) {
+			for (BundleStorageChangeListener listener : storageListeners)
+				listener.notifyBundleRemoved(eQueue, bundle);
+		}
+	}
 
-	public static int getStorageCapacity() {
-		// TODO Implement
-		return 0;
+	public static long getStorageAvailable() {
+		return bStorage.getAvailable();
 	}
 
 
@@ -496,6 +523,21 @@ public final class BPAgent {
 		
 		public void init() {
 			router.init(config.getProperties());
+		}
+	}
+	
+	
+	private static class BundleExpirationEvent extends Event {
+		private final Bundle bundle;
+		
+		public BundleExpirationEvent(Bundle bundle) {
+			this.bundle = bundle;
+		}
+
+		@Override
+		public void execute() throws Throwable {
+			LOGGER.v(String.format("Bundle %016x expired", bundle.getUniqueID()));
+			removeBundle(bundle);
 		}
 	}
 	
@@ -526,32 +568,5 @@ public final class BPAgent {
 		}
 	}
 
-
-	private static class ClockHooker implements SystemClock.Hooker {
-		private boolean ready = false;
-		private long start;
-		private double ts;
-		
-		private void check() {
-			if (!ready) {
-				start = sConfig.getStart().getTime();
-				ts = sConfig.getTimescale();
-				ready = true;
-			}
-		}
-		
-		@Override
-		public long millis() {
-			check();
-			return (long) ((System.currentTimeMillis() - start) / ts) + start;
-		}
-
-		@Override
-		public long nanos() {
-			check();
-			return (long) (System.nanoTime() / ts);
-		}
-	}
-	
 	private BPAgent() { }
 }

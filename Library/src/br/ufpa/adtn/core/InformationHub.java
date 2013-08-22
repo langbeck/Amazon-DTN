@@ -2,7 +2,9 @@ package br.ufpa.adtn.core;
 
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import br.ufpa.adtn.bundle.Bundle;
@@ -18,6 +20,7 @@ public class InformationHub {
 	
 	public final static BluetoothHub BLUETOOTH;
 	public final static BundleHub DATA_BUNDLE;
+	public final static BundleHub META_BUNDLE;
 	public final static BundleHub BUNDLE;
 	
 	public final static ProphetHub PROPHET;
@@ -26,30 +29,85 @@ public class InformationHub {
 	static {
 		COMPRESSED_CONVERGENCE_LAYER_METER = new TrafficMeter();
 		CONVERGENCE_LAYER_METER = new TrafficMeter();
+		DATA_BUNDLE = new BundleHub("BundleData");
+		META_BUNDLE = new BundleHub("BundleMeta");
+		BUNDLE = new BundleHub("BundleGeneral");
 		DISCOVERY_METER = new TrafficMeter();
 		BLUETOOTH = new BluetoothHub();
-		DATA_BUNDLE = new BundleHub();
 		PROPHET = new ProphetHub();
-		BUNDLE = new BundleHub();
 		DLIFE = new DLifeHub();
 	}
 	
+
+	public static void onTransferred(Bundle bundle, EID next, boolean isFinal) {
+		(bundle.getInfo().isMeta() ? META_BUNDLE : DATA_BUNDLE) 
+			.onTransferred(bundle, next, isFinal);
+
+		BUNDLE.onTransferred(bundle, next, isFinal);
+	}
+	
+	public static void onTransferStarted(Bundle bundle, EID next) {
+		(bundle.getInfo().isMeta() ? META_BUNDLE : DATA_BUNDLE)
+			.onTransferStarted(bundle, next);
+
+		BUNDLE.onTransferStarted(bundle, next);
+	}
+	
+	public static void onTransferAborted(Bundle bundle, EID next) {
+		(bundle.getInfo().isMeta() ? META_BUNDLE : DATA_BUNDLE)
+			.onTransferAborted(bundle, next);
+
+		BUNDLE.onTransferAborted(bundle, next);
+	}
+	
+	public static void onReceived(Bundle bundle, EID prev) {
+		(bundle.getInfo().isMeta() ? META_BUNDLE : DATA_BUNDLE)
+			.onReceived(bundle, prev);
+
+		BUNDLE.onReceived(bundle, prev);
+	}
+	
+	public static void onCreation(Bundle bundle) {
+		(bundle.getInfo().isMeta() ? META_BUNDLE : DATA_BUNDLE)
+			.onCreation(bundle);
+	
+		BUNDLE.onCreation(bundle);
+	}
+	
+	public static void onDeleted(Bundle bundle, boolean dropped) {
+		(bundle.getInfo().isMeta() ? META_BUNDLE : DATA_BUNDLE)
+			.onDeleted(bundle, dropped);
+	
+		BUNDLE.onDeleted(bundle, dropped);
+	}
 	
 	public static class BundleHub {
 		private final static Logger LOGGER = new Logger("BundleHub");
+		private final String hubname;
 		private int payloadReceived;
 		private int dataReceived;
 		private int payloadSent;
+		private int delivered;
 		private int dataSent;
 		private int received;
+		private int created;
+		private int relayed;
 		private int sent;
+
+		private final Map<Long, Long> receivedTime;
 		
-		private BundleHub() {
+		private BundleHub(String hubname) {
+			this.hubname = hubname;
+
+			this.receivedTime = new HashMap<Long, Long>();
 			this.payloadReceived = 0;
 			this.dataReceived = 0;
 			this.payloadSent = 0;
+			this.delivered = 0;
 			this.dataSent = 0;
 			this.received = 0;
+			this.created = 0;
+			this.relayed = 0;
 			this.sent = 0;
 		}
 		
@@ -77,34 +135,143 @@ public class InformationHub {
 			return dataSent;
 		}
 
+		public int getDeliveredBundles() {
+			return delivered;
+		}
+		
 		public int getReceivedBundles() {
 			return received;
+		}
+		
+		public int getRelayedBundles() {
+			return relayed;
 		}
 
 		public int getSentBundles() {
 			return sent;
 		}
-
-		public void onReceived(Bundle bundle) {
-			LOGGER.i(String.format(
-					"Received [ID:%016x]",
-					bundle.getUniqueID()
-			));
-			
-			payloadReceived += bundle.getPayload().getLength();
-			dataReceived += bundle.getDataLength();
-			received++;
+		
+		public int getCreated() {
+			return created;
 		}
 		
-		public void onSent(Bundle bundle) {
-			LOGGER.i(String.format(
-					"Sent [ID:%016x]",
-					bundle.getUniqueID()
-			));
-			
-			payloadSent += bundle.getPayload().getLength();
+		public void onTransferred(Bundle bundle, EID next, boolean isFinal) {
+			if (isFinal) {
+				LOGGER.i(String.format(
+						"(%s) Delivered: [ ID: %016x ; To: %s ]",
+						new Date(SystemClock.millis()),
+						bundle.getUniqueID(),
+						next
+				));
+				delivered++;
+			} else {
+				LOGGER.i(String.format(
+						"(%s) Relayed: [ ID: %016x ; To: %s ]",
+						new Date(SystemClock.millis()),
+						bundle.getUniqueID(),
+						next
+				));
+				
+				relayed++;
+			}
+
+			payloadSent += bundle.getPayloadLength();
 			dataSent += bundle.getDataLength();
 			sent++;
+		}
+		
+		public void onTransferStarted(Bundle bundle, EID next) {
+			LOGGER.i(String.format(
+					"(%s) TransferStarted: [ ID: %016x ; To: %s ]",
+					new Date(SystemClock.millis()),
+					bundle.getUniqueID(),
+					next
+			));
+		}
+		
+		public void onTransferAborted(Bundle bundle, EID next) {
+			LOGGER.i(String.format(
+					"(%s) TransferAborted: [ ID: %016x ; To: %s ]",
+					new Date(SystemClock.millis()),
+					bundle.getUniqueID(),
+					next
+			));
+		}
+
+		public void onReceived(Bundle bundle, EID prev) {
+			final long uniqueID = bundle.getUniqueID();
+			LOGGER.i(String.format(
+					"(%s) Received: [ ID: %016x ; From: %s ]",
+					new Date(SystemClock.millis()),
+					uniqueID,
+					prev
+			));
+			
+			if (receivedTime.containsKey(uniqueID)) {
+				LOGGER.w(String.format(
+						"Bundle %016x already was received [IGNORING]",
+						uniqueID
+				));
+				return;
+			}
+
+			receivedTime.put(uniqueID, SystemClock.millis());
+			payloadReceived += bundle.getPayloadLength();
+			dataReceived += bundle.getDataLength();
+			received++; 
+		}
+
+		public void onCreation(Bundle bundle) {
+			final long uniqueID = bundle.getUniqueID();
+			LOGGER.i(String.format(
+					"(%s) Created: [ ID: %016x ; Destination: %s ]",
+					new Date(SystemClock.millis()),
+					uniqueID,
+					bundle.getDestination()
+			));
+			
+			created++;
+		}
+
+		public void onDeleted(Bundle bundle, boolean dropped) {
+			final long uniqueID = bundle.getUniqueID();
+			
+			if (dropped) {
+				LOGGER.i(String.format(
+						"(%s) Dropped: [ ID: %016x ]",
+						new Date(SystemClock.millis()),
+						uniqueID,
+						bundle.getDestination()
+				));
+			} else {
+				final Long t = receivedTime.remove(uniqueID);
+				LOGGER.i(String.format(
+						"(%s) Deleted: [ ID: %016x ; BufferTime: %s ]",
+						new Date(SystemClock.millis()),
+						uniqueID,
+						bundle.getDestination(),
+						(t == null) ? "unknow" : SystemClock.millis() - t
+				));
+			}
+		}
+		
+		private String getStatus(Date now) {
+			return String.format(
+					"(%s) %s [ Number: %d / (%d %d %d) ; Payload: %d / %d ; Data: %d / %d ; Overhead: %d / %d ; Created: %d ]",
+					now,
+					hubname,
+					getReceivedBundles(),
+					getDeliveredBundles(),
+					getRelayedBundles(),
+					getSentBundles(),
+					getReceivedPayload(),
+					getSentPayload(),
+					getReceivedData(),
+					getSentData(),
+					getReceivedOverhead(),
+					getSentOverhead(),
+					getCreated()
+			);
 		}
 	}
 	
@@ -193,36 +360,9 @@ public class InformationHub {
 		protected void onEvent() {
 			final Date now = new Date(SystemClock.millis());
 
-			BundleHub bundle;
-			
-			bundle = InformationHub.BUNDLE;
-			LOGGER.i(String.format(
-					"(%s) AllBundles [ Number: %d / %d ; Payload: %d / %d ; Data: %d / %d ; Overhead: %d / %d ]",
-					now,
-					bundle.getReceivedBundles(),
-					bundle.getSentBundles(),
-					bundle.getReceivedPayload(),
-					bundle.getSentPayload(),
-					bundle.getReceivedData(),
-					bundle.getSentData(),
-					bundle.getReceivedOverhead(),
-					bundle.getSentOverhead()
-			));
-			
-			bundle = InformationHub.DATA_BUNDLE;
-			LOGGER.i(String.format(
-					"(%s) DataBundles [ Number: %d / %d ; Payload: %d / %d ; Data: %d / %d ; Overhead: %d / %d ]",
-					now,
-					bundle.getReceivedBundles(),
-					bundle.getSentBundles(),
-					bundle.getReceivedPayload(),
-					bundle.getSentPayload(),
-					bundle.getReceivedData(),
-					bundle.getSentData(),
-					bundle.getReceivedOverhead(),
-					bundle.getSentOverhead()
-			));
-			
+			LOGGER.i(DATA_BUNDLE.getStatus(now));
+			LOGGER.i(META_BUNDLE.getStatus(now));
+			LOGGER.i(BUNDLE.getStatus(now));
 			
 			TrafficMeter meter;
 
@@ -251,6 +391,11 @@ public class InformationHub {
 					now,
 					meter.getTotalReceived(),
 					meter.getTotalSent()
+			));
+			
+			LOGGER.i(String.format(
+					"(%s) Storage [ %d ]",
+					BPAgent.getStorageAvailable()
 			));
 			
 //			if (log_dlife) {

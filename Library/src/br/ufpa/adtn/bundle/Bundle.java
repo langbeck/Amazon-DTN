@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import br.ufpa.adtn.core.EID;
+import br.ufpa.adtn.core.InformationHub;
 import br.ufpa.adtn.core.SerializableSegmentedObject;
 import br.ufpa.adtn.util.BufferSlicer;
 import br.ufpa.adtn.util.ChainOfSegments;
@@ -35,13 +36,13 @@ public final class Bundle implements SerializableSegmentedObject {
 		this.info = BundleInfo.parse(buffer);
 		info.attach(this);
 		
-		if (buffer.get() != (byte) 1)
+		if (buffer.get() != (byte) 0x01)
 			throw new RuntimeException("Wrong block type");
 		
 		if (buffer.get() != (byte) 0x08)
 			throw new RuntimeException("Wrong block flags");
 		
-		byte[] data = new byte[SDNV.decodeInt(buffer)];
+		final byte[] data = new byte[SDNV.decodeInt(buffer)];
 		buffer.get(data);
 		
 		this.payload = DataBlock.wrap(data);
@@ -57,6 +58,8 @@ public final class Bundle implements SerializableSegmentedObject {
 		this.payload = payload;
 		this.info = info;
 		info.attach(this);
+		
+		InformationHub.onCreation(this);
 	}
 	
 	/**
@@ -94,6 +97,11 @@ public final class Bundle implements SerializableSegmentedObject {
 		return	info.getBlockLength() +
 				SDNV.length(plen) +
 				plen + 2;
+	}
+	
+	@Override
+	public String toString() {
+		return String.format("Bundle [ID: %016x]", info.getUniqueID());
 	}
 
 	@Override

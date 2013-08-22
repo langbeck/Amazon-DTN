@@ -34,6 +34,8 @@ import br.ufpa.adtn.util.SDNV;
 
 
 public final class BundleInfo implements SerializableSegmentedObject {
+	private final static long SECONDS_AT_2K = 946684800L;
+	
 	public final static int BUNDLE_IS_A_FRAGMENT_FLAG	= 0x01;
 	public final static int ADMINISTRATIVE_RECORD_FLAG	= 0x02;
 	public final static int MUST_NOT_FRAGMENT_FLAG		= 0x04;
@@ -41,13 +43,18 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	public final static int SINGLETON_DESTINATION_FLAG	= 0x10;
 	public final static int ACK_REQUESTED_FLAG			= 0x20;
 	
-	private static int DEFAULT_LIFETIME;
-	private static int CREATION_TIME;
+	/**
+	 * Custom flag used to mark (bit 5)
+	 */
+	public final static int IS_META_BUNDLE_FLAG			= 0x40;
+	
+	private static long DEFAULT_LIFETIME;
+	private static long CREATION_TIME;
 	private static int CREATION_SEQ;
 	
 	static {
-		CREATION_TIME = (int) (SystemClock.millis() / 1000);
-		DEFAULT_LIFETIME = 3600;
+		CREATION_TIME = SystemClock.secs() - SECONDS_AT_2K;
+		DEFAULT_LIFETIME = 3600L;
 		CREATION_SEQ = 0;
 	}
 	
@@ -65,6 +72,18 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				source,
 				EID.NULL,
 				EID.NULL
+		);
+	}
+	
+	public static BundleInfo create(EID destination, EID source, int flags) {
+		return create(
+				destination,
+				source,
+				EID.NULL,
+				EID.NULL,
+				0,
+				0,
+				flags
 		);
 	}
 	
@@ -97,9 +116,9 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	
 	public synchronized static BundleInfo create(EID destination, EID custodian,
 			EID reportTo, EID source, int fragment_offset,
-			int total_data_len, int lifetime, int flags) {
+			int total_data_len, long lifetime, int flags) {
 		
-		final int now = (int) (SystemClock.millis() / 1000);
+		final long now = SystemClock.secs() - SECONDS_AT_2K;
 		final int creation_seq;
 		if (now != CREATION_TIME) {
 			CREATION_SEQ = creation_seq = 0;
@@ -128,13 +147,13 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	private final EID reportTo;
 	private final EID source;
 
-	private final int creation_time;
+	private final long creation_time;
 	private final int creation_seq;
 
 	private final int fragment_offset;
 	private final int total_data_len;
 	
-	private final int lifetime;
+	private final long lifetime;
 	private final int flags;
 
 	private Bundle bundle;
@@ -163,7 +182,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 				SDNV.decodeInt(buffer)
 		};
 
-		creation_time = SDNV.decodeInt(buffer);
+		creation_time = SDNV.decodeLong(buffer);
 		creation_seq = SDNV.decodeInt(buffer);
 		lifetime = SDNV.decodeInt(buffer);
 
@@ -216,8 +235,8 @@ public final class BundleInfo implements SerializableSegmentedObject {
 	}
 	
 	private BundleInfo(EID destination, EID custodian, EID reportTo, EID source,
-			int creation_time, int creation_seq, int fragment_offset,
-			int total_data_len, int lifetime, int flags) {
+			long creation_time, int creation_seq, int fragment_offset,
+			int total_data_len, long lifetime, int flags) {
 		
 		this.destination = destination;
 		this.custodian = custodian;
@@ -232,6 +251,14 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		
 		this.block_len = -1;
 		this.bundle = null;
+	}
+	
+	public boolean isExpired() {
+		return getSecondsToExpiration() > 0;
+	}
+	
+	public long getSecondsToExpiration() {
+		return SECONDS_AT_2K + creation_time + lifetime - SystemClock.secs();
 	}
 	
 	public EID getDestination() {
@@ -250,7 +277,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		return source;
 	}
 
-	public int getCreationTime() {
+	public long getCreationTime() {
 		return creation_time;
 	}
 
@@ -273,7 +300,7 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		return bundle.getPayload().getLength();
 	}
 
-	public int getLifetime() {
+	public long getLifetime() {
 		return lifetime;
 	}
 
@@ -293,35 +320,39 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		return (flags & BUNDLE_IS_A_FRAGMENT_FLAG) != 0;
 	}
 	
+	public boolean isMeta() {
+		return (flags & IS_META_BUNDLE_FLAG) != 0;
+	}
+	
 	public long getUniqueID() {
 		if (bundle == null)
 			throw new IllegalStateException("Not attached");
 		
-		int hi_result = 1;
-		int lo_result = 1;
+		long hi_result = 1;
+		long lo_result = 1;
 		
 		final int plen = bundle.getPayload().getLength();
 		final int src_hash = source.hashCode();
-
-		hi_result = 31 * hi_result + creation_time;
-		hi_result = 31 * hi_result + creation_seq;
-		hi_result = 31 * hi_result + src_hash;
-		hi_result = 31 * hi_result + plen;
+		
+		hi_result = 11 * hi_result + creation_time;
+		hi_result = 11 * hi_result + creation_seq;
+		hi_result = 11 * hi_result + src_hash;
+		hi_result = 11 * hi_result + plen;
 
 		lo_result = 23 * lo_result + creation_time;
 		lo_result = 23 * lo_result + creation_seq;
 		lo_result = 23 * lo_result + src_hash;
 		lo_result = 23 * lo_result + plen;
-		
+
 		if (isFragment()) {
-			hi_result = 31 * hi_result + fragment_offset;
-			hi_result = 31 * hi_result + total_data_len;
+			hi_result = 11 * hi_result + fragment_offset;
+			hi_result = 11 * hi_result + total_data_len;
 
 			lo_result = 23 * lo_result + fragment_offset;
 			lo_result = 23 * lo_result + total_data_len;
 		}
 		
-		return (((long) hi_result) << 32) | ((long) lo_result);
+		return ((hi_result & 0xFFFFFFFFL) << 32) | (lo_result & 0xFFFFFFFFL);
 	}
 	
 	@Override
@@ -331,10 +362,11 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		
 		final int prime = 31;
 		int result = 1;
+		
 		result = prime * result + bundle.getPayload().getLength();
 		result = prime * result + source.hashCode();
-		result = prime * result + creation_time;
 		result = prime * result + creation_seq;
+		result = (int) (prime * result + creation_time);
 		
 		if (isFragment()) {
 			result = prime * result + fragment_offset;
@@ -646,9 +678,10 @@ public final class BundleInfo implements SerializableSegmentedObject {
 		SDNV.encodeInt(buffer, offsets[6]);
 		SDNV.encodeInt(buffer, offsets[7]);
 		
-		SDNV.encodeInt(buffer, creation_time);
+		SDNV.encodeLong(buffer, creation_time);
 		SDNV.encodeInt(buffer, creation_seq);
-		SDNV.encodeInt(buffer, lifetime);
+		
+		SDNV.encodeLong(buffer, lifetime);
 		SDNV.encodeInt(buffer, dict.limit());
 		final ByteBuffer middle = slicer.end();
 
@@ -658,11 +691,10 @@ public final class BundleInfo implements SerializableSegmentedObject {
 			SDNV.encodeInt(buffer, total_data_len);
 			fragment = slicer.end();
 		}
-		
+
 		SDNV.encodeInt(buffer, buffer.position() - blockStart);
 		final ByteBuffer blocklen = slicer.end();
 
-		
 		chain.append(bh);
 		chain.append(blocklen);
 		chain.append(middle);

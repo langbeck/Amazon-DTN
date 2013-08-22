@@ -29,10 +29,16 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 import br.ufpa.adtn.bundle.Bundle;
+import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.Properties;
 
 public abstract class BundleStorage {
+	public static final int REASON_OK			= 0x00;
+	public static final int REASON_UNKNOWN		= 0x01;
+	public static final int REASON_DUPLICATED	= 0x02;
+	
 	private static final Map<String, Constructor<? extends BundleStorage>> MODELS;
+	private static final Logger LOGGER = new Logger("BundleStorage");
 	
 	static {
 		MODELS = new HashMap<String, Constructor<? extends BundleStorage>>();
@@ -52,7 +58,7 @@ public abstract class BundleStorage {
 			throw new IllegalArgumentException("Model already registered");
 		
 		try {
-			MODELS.put(model, mClass.getConstructor());
+			MODELS.put(model, mClass.getConstructor(long.class));
 		} catch (NoSuchMethodException e) {
 			throw new IllegalArgumentException("Model does not have a default constructor", e);
 		} catch (SecurityException e) {
@@ -60,13 +66,13 @@ public abstract class BundleStorage {
 		}
 	}
 	
-	public static BundleStorage createStorage(String model, Properties config) throws IllegalStateException, ExecutionException {
+	public static BundleStorage createStorage(String model, long size, Properties config) throws IllegalStateException, ExecutionException {
 		final Constructor<? extends BundleStorage> c = MODELS.get(model);
 		if (c == null)
 			throw new IllegalArgumentException("Invalid model");
 		
 		try {
-			final BundleStorage storage = c.newInstance();
+			final BundleStorage storage = c.newInstance(size);
 			storage.init(config);
 			return storage;
 		} catch (IllegalArgumentException e) {
@@ -80,11 +86,14 @@ public abstract class BundleStorage {
 		}
 	}
 	
-	
+	private final long capacity;
 	private boolean initialized;
+	private long used;
 	
-	protected BundleStorage() {
+	protected BundleStorage(long capacity) {
 		this.initialized = false;
+		this.capacity = capacity;
+		this.used = 0L;
 	}
 
 	public Collection<Bundle> getBundlesFrom(EID src) {
@@ -114,21 +123,74 @@ public abstract class BundleStorage {
 			initialized = true;
 		}
 	}
+
+	public final long getAvailable() {
+		return capacity - used;
+	}
 	
+	public final long getCapacity() {
+		return capacity;
+	}
+
+	public final long getUsed() {
+		return used;
+	}
 	
 	protected void onInit(Properties config) { }
 	
+	public final void remove(Bundle bundle) {
+		LOGGER.v(String.format("Removing bundle %016x", bundle.getUniqueID()));
+		synchronized (this) {
+			used -= bundle.getPayloadLength();
+			if (used < 0) {
+				LOGGER.e(String.format(
+						"Used space calculation error: %d [Set to 0]",
+						used
+				));
+				used = 0;
+			}
+			
+			delete(bundle);
+		}
+	}
+
+	public final boolean add(Bundle bundle) {
+		final long uniqueID = bundle.getUniqueID();
+		LOGGER.v(String.format("Adding bundle %016x", uniqueID));
+		synchronized (this) {
+			final long blen = bundle.getPayloadLength();
+			if (used + blen > capacity) {
+				LOGGER.w("Storage capacity overflow");
+				return false;
+			}
+			
+			final int reason = put(bundle);
+			if (reason != REASON_OK) {
+				LOGGER.w(String.format(
+						"Storage model refused bundle %016x for reason %d",
+						uniqueID,
+						reason
+				));
+				return false;
+			}
+
+			used += blen;
+			return true;
+		}
+	}
+
 	public abstract Collection<Bundle> getBundles();
-	public abstract void remove(Bundle bundle);
-	public abstract void add(Bundle bundle);
-	
-	
+	protected abstract void delete(Bundle bundle);
+	protected abstract int put(Bundle bundle);
+
+
 
 	public static class MemoryStorage extends BundleStorage {
 		private final Collection<Bundle> roBundles;
 		private final Collection<Bundle> bundles;
 		
-		public MemoryStorage() {
+		public MemoryStorage(long capacity) {
+			super(capacity);
 			this.bundles = new HashSet<Bundle>();
 			this.roBundles = Collections.unmodifiableCollection(bundles);
 		}
@@ -139,13 +201,13 @@ public abstract class BundleStorage {
 		}
 	
 		@Override
-		public void remove(Bundle bundle) {
+		protected void delete(Bundle bundle) {
 			bundles.remove(bundle);
 		}
 	
 		@Override
-		public void add(Bundle bundle) {
-			bundles.add(bundle);
+		protected int put(Bundle bundle) {
+			return bundles.add(bundle) ? 0 : REASON_DUPLICATED;
 		}
 	}
 }

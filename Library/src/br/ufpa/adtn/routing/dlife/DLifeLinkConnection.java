@@ -58,7 +58,7 @@ public class DLifeLinkConnection extends MessageLinkConnection<DLifeLinkConnecti
 		return sInfo;
 	}
 	
-	public void update(NeighborWeight[] weights, BundleSpec[] carried, BundleSpec[] acked, int storage, float importance) {
+	public void update(NeighborWeight[] weights, BundleSpec[] carried, BundleSpec[] acked, long storage, float importance) {
 		for (int i = 0, len = carried.length; i < len; i++)
 			this.carried.add(carried[i]);
 		

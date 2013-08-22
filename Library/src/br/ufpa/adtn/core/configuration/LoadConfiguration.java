@@ -89,7 +89,11 @@ public class LoadConfiguration {
 	}
 	
 	public String getStorageModel() {
-		return config.getString("storage");
+		return config.getString("storage-model");
+	}
+	
+	public long getStorageSize() {
+		return config.getLong("storage-size", 0x200000L);
 	}
 	
 	public void setHostname(String hostname) {

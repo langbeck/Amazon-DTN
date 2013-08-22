@@ -98,8 +98,8 @@ public class ProphetDataRouting {
 		private long last_age;
 		
 		public Neighbor(EID eid) {
+			this.last_age = SystemClock.millis();
 			this.eid = eid;
-			last_age = SystemClock.millis();
 		}
 		
 		private void p_encounterCalc() {
@@ -128,7 +128,7 @@ public class ProphetDataRouting {
 		}
 		
 		private void ageCalc() {
-			float K_fact = (last_age - SystemClock.millis()) / K;
+			final float K_fact = (last_age - SystemClock.millis()) / K;
 			this.p_value = (float) (p_value * Math.pow(GAMMA, K_fact));
 		}
 	}

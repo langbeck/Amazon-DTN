@@ -35,7 +35,9 @@ import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import br.ufpa.adtn.core.ClockHooker;
 import br.ufpa.adtn.core.ParsingException;
+import br.ufpa.adtn.core.SystemClock;
 import br.ufpa.adtn.util.Logger;
 
 /**
@@ -70,6 +72,7 @@ public class SimulationConfiguration {
 
     private final Map<String, DeviceInfo> addressRef;
     private final Map<String, DeviceInfo> aliasesRef;
+    private final ClockHooker hooker;
     private DeviceInfo currentDevice;
     private double timescale;
     private boolean inBlock;
@@ -156,6 +159,12 @@ public class SimulationConfiguration {
         
         if (start == null)
             throw new ParsingException("Start time not defined");
+        
+        this.hooker = new InternalClockHooker();
+    }
+    
+    public ClockHooker getClockHooker() {
+    	return hooker;
     }
 
     public Collection<String> getAddresses() {
@@ -357,4 +366,19 @@ public class SimulationConfiguration {
             return alias;
         }
     }
+    
+    private class InternalClockHooker extends ClockHooker {
+		private long sTime;
+		
+		@Override
+		public long getMilliseconds() {
+			return (long) ((System.currentTimeMillis() - sTime) / timescale) + sTime;
+		}
+		
+		@Override
+		public long getNanoseconds() {
+			return (long) (System.nanoTime() / timescale);
+		}
+	}
+
 }

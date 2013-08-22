@@ -18,24 +18,23 @@
 package br.ufpa.adtn.core;
 
 
-public final class SystemClock {
-	private static Hooker HOOKER = null;
+public final class SystemClock extends ClockHooker {
+	private static ClockHooker HOOKER = new SystemClock();
 
 	public static long millis() {
-		if (HOOKER != null)
-			return HOOKER.millis();
-		
-		return System.currentTimeMillis();
+		return HOOKER.getMilliseconds();
 	}
 
 	public static long nanos() {
-		if (HOOKER != null)
-			return HOOKER.nanos();
-		
-		return System.nanoTime();
+		return HOOKER.getNanoseconds();
 	}
 	
-	public static void setHooker(Hooker hooker) throws IllegalStateException {
+	public static long secs() {
+		return HOOKER.getSeconds();
+	}
+
+	
+	public static void setHooker(ClockHooker hooker) throws IllegalStateException {
 		if (!BPAgent.isSimulated())
 			throw new IllegalStateException("BPAgent is not in simulated mode.");
 
@@ -46,11 +45,15 @@ public final class SystemClock {
 	}
 	
 	
-	public static interface Hooker {
-		public long millis();
-		public long nanos();
+	private SystemClock() { }
+
+	@Override
+	public long getMilliseconds() {
+		return System.currentTimeMillis();
 	}
 	
-	
-	private SystemClock() { }
+	@Override
+	public long getNanoseconds() {
+		return System.nanoTime();
+	}
 }

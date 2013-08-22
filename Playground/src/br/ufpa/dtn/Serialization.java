@@ -14,7 +14,7 @@ import br.ufpa.adtn.routing.dlife.DLifeTLV.HelloType;
 import br.ufpa.adtn.util.ChainOfSegments;
 import br.ufpa.adtn.util.DataBlock;
 
-public class Generic {
+public class Serialization {
 	
 	public static void main(String[] args) throws Exception {
 		Message<DLifeTLV> message = Message.create(

@@ -17,6 +17,8 @@
  */
 package br.ufpa.adtn.routing.dlife;
 
+import java.util.regex.Pattern;
+
 import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.EID;
 import br.ufpa.adtn.routing.MessageConnection;
@@ -34,8 +36,8 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 	
 	private DLifeLinkConnection conn;
 	private SocialInformation sInfo;
+	private long storage;
 	private State state;
-	private int storage;
 	
 	private void changeState(State to) {
 		LOGGER.i(String.format(
@@ -139,7 +141,7 @@ public class DLifeMessageConnection extends MessageConnection<DLifeLinkConnectio
 				HelloType.HEL,
 				getLocalEndpointID(),
 				0,
-				BPAgent.getStorageCapacity()
+				BPAgent.getStorageAvailable()
 		));
 		
 		changeState(State.HELLO_EXCHANGE);

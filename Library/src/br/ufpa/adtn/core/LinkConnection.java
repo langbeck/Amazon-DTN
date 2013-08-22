@@ -18,10 +18,9 @@
 package br.ufpa.adtn.core;
 
 import br.ufpa.adtn.bundle.Bundle;
-import br.ufpa.adtn.core.InformationHub.BundleHub;
 import br.ufpa.adtn.util.EventQueue;
-import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.EventQueue.Event;
+import br.ufpa.adtn.util.Logger;
 
 public abstract class LinkConnection<LC extends LinkConnection<LC, R>, R extends BundleRouter<R, LC>> {
 	private static final Logger LOGGER = new Logger("LinkConnection");
@@ -143,7 +142,6 @@ public abstract class LinkConnection<LC extends LinkConnection<LC, R>, R extends
 			throw new IllegalAccessError("Send bundle request must be requested by Router event queue Thread");
 
 		LOGGER.v("Sending bundle");
-		BundleHub bHub = InformationHub.DATA_BUNDLE;
 		link.send(bundle);
 	}
 	

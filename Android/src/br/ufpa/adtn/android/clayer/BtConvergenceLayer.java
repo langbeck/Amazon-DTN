@@ -19,11 +19,12 @@ package br.ufpa.adtn.android.clayer;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,7 +42,8 @@ import br.ufpa.adtn.bundle.Bundle;
 import br.ufpa.adtn.core.BPAgent;
 import br.ufpa.adtn.core.ConvergenceLayer;
 import br.ufpa.adtn.core.EID;
-import br.ufpa.adtn.core.InformationHub;
+import br.ufpa.adtn.util.ChainOfSegments;
+import br.ufpa.adtn.util.DataBlock;
 import br.ufpa.adtn.util.Logger;
 import br.ufpa.adtn.util.Properties;
 
@@ -49,6 +51,9 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 	private static final String DEFAULT_DISCOVERY_UUID = "c20fdacd-ecad-4463-9a9d-560512c4724a";
 	private static final String DEFAULT_SERVICE_UUID = "99d5ab9c-3e69-4488-9e81-3a9e993a8c52";
 	private static final Logger LOGGER = new Logger("BluetoothConvergenceLayer");
+	private static final short BUNDLE_HEADER = (short) 0x8A2D;
+	private static final short MAGIC_HEADER = (short) 0x4E10;
+	
 
 	@Override
 	protected BtAdapter createAdapter(Properties configuration, Object data) {
@@ -120,7 +125,6 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 	
 	public class BtConnection extends ConvergenceLayer<BtAdapter, BtConnection>.AbstractConnection {
 		private final Logger LOGGER = new Logger("BtConnecion");
-		private final short MAGIC = 0x4E3A;
 
 		private final BlockingQueue<Bundle> outputBundles;
 		private final BluetoothDevice device;
@@ -154,23 +158,38 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 		@Override
 		public void send(Bundle bundle) {
 			outputBundles.offer(bundle);
-			super.send(bundle);
 		}
 
 		@Override
 		protected void processOutput(OutputStream out) throws IOException {
+			Bundle bundle = null;
 			try {
-				final ObjectOutputStream oos = new ObjectOutputStream(out);
-				oos.writeShort(MAGIC);
+				final DataOutputStream dos = new DataOutputStream(out);
+				dos.writeShort(MAGIC_HEADER);
 				
 				//FIXME Each ConvergenceLayer must have your own EID (if needed)
-				oos.writeUTF(BPAgent.getHostEID().toString());
-				oos.flush();
+				dos.writeUTF(BPAgent.getHostEID().toString());
+				dos.flush();
 				
 				while (!Thread.interrupted()) {
-					final Bundle b = outputBundles.take();
-					oos.writeUnshared(b);
-					oos.flush();
+					// Buffer allocation need get smarter
+					final ByteBuffer buffer = ByteBuffer.allocate(0x10000);
+					final ChainOfSegments chain = new ChainOfSegments();
+					
+					bundle = outputBundles.take();
+					notifyTransferStarted(bundle);
+					
+					bundle.serialize(chain, buffer);
+					final DataBlock block = DataBlock.join(chain.getSegments());
+					final int bLength = block.getLength();
+
+					dos.writeShort(BUNDLE_HEADER);
+					dos.writeInt(bLength);
+					block.copy(dos);
+					dos.flush();
+					
+					notifyTransferred(bundle);
+					bundle = null;
 				}
 			} catch (InterruptedException e) {
 				LOGGER.w("Output Interrupted");
@@ -178,38 +197,38 @@ public class BtConvergenceLayer extends ConvergenceLayer<BtAdapter, BtConnection
 				LOGGER.e("Output error", t);
 			} finally {
 				LOGGER.d("EXITING(processOutput)");
+				
+				if (bundle != null)
+					notifyTransferAborted(bundle);
 			}
 		}
 
 		@Override
 		protected void processInput(InputStream in) throws IOException {
-			final ObjectInputStream ois = new ObjectInputStream(in);
-			if (ois.readShort() != MAGIC)
+			final DataInputStream dis = new DataInputStream(in);
+			if (dis.readShort() != MAGIC_HEADER)
 				throw new IOException("Wrong magic");
 			
-			final EID remote_eid = EID.get(ois.readUTF());
+			final EID remote_eid = EID.get(dis.readUTF());
 			if (!isRegistered())
 				register(remote_eid);
 			
 			try {
 				while (isConnected()) {
-					final Object bundle;
+					if (dis.readShort() != BUNDLE_HEADER)
+						throw new IOException("Wrong header");
+					
 					try {
-						bundle = ois.readUnshared();
+						final int l = dis.readInt();
+						final byte[] b = new byte[l];
+						for (int r = 0, p = 0; (r = dis.read(b, p, l - p)) != -1 && r < l; p += r);
+						
+						notifyReceived(new Bundle(ByteBuffer.wrap(b)));
 					} catch (IOException e) {
 						LOGGER.w("Connection failure");
 						break;
 					}
-					
-					if (!(bundle instanceof Bundle)) {
-						LOGGER.w("Non Bundle received. Ignoring this object.");
-						continue;
-					}
-					
-					bundleReceived((Bundle) bundle);
 				}
-			} catch (ClassNotFoundException e) {
-				LOGGER.e("Input processing failure", e);
 			} finally {
 				LOGGER.d("EXITING(processInput)");
 			}

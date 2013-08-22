@@ -96,7 +96,7 @@ public final class Properties {
 		return Integer.parseInt(getString(key, String.valueOf(def)));
 	}
 	
-	public long getLong(String key, int def) {
+	public long getLong(String key, long def) {
 		return Long.parseLong(getString(key, String.valueOf(def)));
 	}
 	

@@ -64,7 +64,8 @@ public abstract class MessageLinkConnection<MLC extends MessageLinkConnection<ML
 		send(new Bundle(
 			BundleInfo.create(
 					getRegistrationEndpointID(),
-					getLocalEndpointID()
+					getLocalEndpointID(),
+					BundleInfo.IS_META_BUNDLE_FLAG
 			),
 			DataBlock.wrap(message)
 		));

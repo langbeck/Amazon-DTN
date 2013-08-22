@@ -25,7 +25,7 @@ def format_size(s, pos=None):
 		return  '{0:.2f} M'.format(s / float(0x100000))
 
 
-with open('summary.log', 'r') as fp:
+with open('summary.dat', 'r') as fp:
 	data = eval(fp.read())
 
 	discovery_received_data = []

@@ -163,11 +163,11 @@ public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, Vi
 		@Override
 		public void send(Bundle bundle) {
 			outputBundles.offer(bundle);
-			super.send(bundle);
 		}
 
 		@Override
 		protected void processOutput(OutputStream out) throws IOException {
+			Bundle bundle = null;
 			try {
 				final DataOutputStream dos = new DataOutputStream(out);
 				dos.writeShort(MAGIC_HEADER);
@@ -181,14 +181,20 @@ public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, Vi
 					final ByteBuffer buffer = ByteBuffer.allocate(0x10000);
 					final ChainOfSegments chain = new ChainOfSegments();
 					
-					outputBundles.take().serialize(chain, buffer);
+					bundle = outputBundles.take();
+					notifyTransferStarted(bundle);
+					
+					bundle.serialize(chain, buffer);
 					final DataBlock block = DataBlock.join(chain.getSegments());
 					final int bLength = block.getLength();
-					
+
 					dos.writeShort(BUNDLE_HEADER);
 					dos.writeInt(bLength);
 					block.copy(dos);
 					dos.flush();
+					
+					notifyTransferred(bundle);
+					bundle = null;
 				}
 			} catch (InterruptedException e) {
 				LOGGER.w("Output Interrupted");
@@ -196,6 +202,9 @@ public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, Vi
 				LOGGER.e("Output error", t);
 			} finally {
 				LOGGER.d("EXITING(processOutput)");
+				
+				if (bundle != null)
+					notifyTransferAborted(bundle);
 			}
 		}
 
@@ -215,9 +224,11 @@ public class VirtualConvergenceLayer extends ConvergenceLayer<VirtualAdapter, Vi
 						throw new IOException("Wrong header");
 					
 					try {
-						final byte[] data = new byte[dis.readInt()];
-						for (int readed = 0, pos = 0; (readed = dis.read(data, pos, data.length - pos)) != -1 && readed < data.length; pos += readed);
-						bundleReceived(new Bundle(ByteBuffer.wrap(data)));
+						final int l = dis.readInt();
+						final byte[] b = new byte[l];
+						for (int r = 0, p = 0; (r = dis.read(b, p, l - p)) != -1 && r < l; p += r);
+						
+						notifyReceived(new Bundle(ByteBuffer.wrap(b)));
 					} catch (IOException e) {
 						LOGGER.w("Connection failure");
 						break;

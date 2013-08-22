@@ -23,8 +23,8 @@ import java.io.FileOutputStream;
 import br.ufpa.dtns.util.PrintStreamHooker;
 
 public class Simulator {
-	private static final String ROUTER = "dlife";
-	
+	private static final String ROUTER = "prophet";
+
 	private static void setup() throws Exception {
 		System.setErr(new PrintStreamHooker(
 				System.err,
@@ -44,7 +44,7 @@ public class Simulator {
 		Container.create(
 				ROUTER,
 				String.format("config.%s.xml", ROUTER),
-				"contact.lite.conf"
+				"contact.conf"
 		);
 	}
 }
